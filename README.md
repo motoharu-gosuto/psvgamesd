@@ -1,15 +1,17 @@
 # psvgamesd
 Set of tools to run PS Vita game dumps from SD card or from binary image
 
+# Introduction
+
 Just a small note before you will try to use these tools.
-
 Currently game dumps can be run both from SD card and from binary dump.
-
 However you may encounter freezes during video cutscenes, glitches and graphical artifacts.
 
 To use kernel plugin you need to obtain one of these:
 - binary file with dump of game card.
 - sd card which would contain binary dump and serve as physical copy.
+
+# Obtaining binary dump of game card
 
 This can be done in different ways:
 
@@ -35,6 +37,8 @@ This can be done in different ways:
    Only little changes are required to make it dump SCEI MBR.
    You can then combine dumps with your favorite hex editor.
    
+# Creating physical copy with SD card
+   
 After binary dump is obtained you can optionally create SD card physical copy by using these:
 
 1. For Windows you can use sdioctl tool from this repo. 
@@ -42,6 +46,13 @@ After binary dump is obtained you can optionally create SD card physical copy by
    You will have to do configuration yourself.
    
 2. For Linux you can use your lovely dd.
+
+I have confirmed that these types of card work:
+
+- SDHC
+- micro SDHC (requires low speed patch)
+
+# Putting it all together
 
 After you have obtained binary file or SD card copy you can use psvgamesd kernel plugin.
 
@@ -64,7 +75,7 @@ to file with binary dump.
 
 #define ENABLE_READ_THROUGH - this define enables redirection to SD card
 
-Next milestones:
+# Next milestones
 
 - Emulate not only CMD17 and CMD18 commands (read/write) but all other SD commands. 
   This is possible and will allow to avoid using SD card.
