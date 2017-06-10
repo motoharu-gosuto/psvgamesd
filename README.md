@@ -5,7 +5,7 @@ Just a small note before you will try to use these tools.
 
 Currently game dumps can be run both from SD card and from binary dump.
 
-However you may encounter freezes, glitches and graphical artifacts.
+However you may encounter freezes during video cutscenes, glitches and graphical artifacts.
 
 To use kernel plugin you need to obtain one of these:
 - binary file with dump of game card.
@@ -63,3 +63,12 @@ By default all SD read/write operations will be redirected to file with binary d
 to file with binary dump.
 
 #define ENABLE_READ_THROUGH - this define enables redirection to SD card
+
+Next milestones:
+
+- Emulate not only CMD17 and CMD18 commands (read/write) but all other SD commands. 
+  This is possible and will allow to avoid using SD card.
+- Remove requirement for cmd56 handshake data to be present. 
+  This is related to NpDrm and requires significant amount of patches in Iofilemgr and PfsMgr.
+  I am already working on it.
+- Investigate why there is a problem with freezes, glitches and artifacts.
