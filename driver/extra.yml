@@ -1,0 +1,35 @@
+modules:
+  SceSdif:
+    nid: 0x2E7C52F7
+    libraries:
+      SceSdifForDriver:
+        kernel: true
+        nid: 0x96D306FA
+        functions:
+          ksceSdifGetSdContextGlobal: 0xdc8f52f8
+          ksceSdifGetSdContextPartMmc: 0x6a71987f
+          ksceSdifGetSdContextPartSd: 0xb9ea5b1e
+          ksceSdifGetSdContextPartSdio: 0x6a8235fc
+          ksceSdifGetCardInsertState1: 0x36a2b01b
+          ksceSdifGetCardInsertState2: 0xfd9e5cfa
+          ksceSdifInitializeSdContextPartMmc: 0x22c82e79
+          ksceSdifInitializeSdContextPartSd: 0xC1271539
+          ksceSdifReadSectorAsync: 0x6f8d529b
+          ksceSdifReadSector: 0xb9593652
+          ksceSdifWriteSectorAsync: 0x175543d2
+          ksceSdifWriteSector: 0xe0781171
+          ksceSdifCopyCtx: 0x23a4ef01
+  SceMsif:
+    nid: 0x3305A0FE
+    libraries:
+      SceMsifForDriver:
+        kernel: true
+        nid: 0xB706084A
+        functions:
+          ksceMsifReadSector: 0x58654AA3
+          ksceMsifWriteSector: 0x329035EF
+          ksceMsifEnableSlowMode: 0x4B751CE6
+          ksceMsifDisableSlowMode: 0x75848756
+          ksceMsifGetSlowModeState: 0x491E25B5
+          ksceMsifInit1: 0x4EA579EF
+          ksceMsifInit2: 0xD0307849

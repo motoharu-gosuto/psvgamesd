@@ -1,0 +1,6 @@
+#pragma once
+
+#define ENABLE_SD_PATCHES
+//#define ENABLE_SD_LOW_SPEED_PATCH 
+#define ENABLE_SEPARATE_READ_THREAD
+//#define ENABLE_READ_THROUGH
