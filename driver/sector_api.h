@@ -119,7 +119,7 @@ typedef struct sd_context_data // size is 0xC0
     uint32_t unk_70;
     uint32_t unk_74;
     uint32_t unk_78;
-    uint32_t unk_7C;      
+    uint32_t unk_7C;
 
     //it looks like this chunk is separate structure since offset 0x2480 is used too often
 
@@ -129,7 +129,7 @@ typedef struct sd_context_data // size is 0xC0
     uint32_t unk_8C;
 
     uint32_t unk_90;
-    int lockable_int;
+    uint32_t lockable_int;
     uint32_t unk_98;
     uint32_t unk_9C;
 
@@ -197,6 +197,8 @@ typedef struct output_23a4ef01
 }output_23a4ef01;
 
 #pragma pack(pop)
+
+//TODO: API does not have best naming. please check the wiki also
 
 #define SCE_SDIF_DEV_EMMC 0
 #define SCE_SDIF_DEV_GAME_CARD 1
