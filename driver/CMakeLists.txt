@@ -40,6 +40,7 @@ target_link_libraries(psvgamesd
   SceMsifForDriver_stub
   SceThreadmgrForDriver_stub
   SceModulemgrForKernel_stub
+  SceKernelSuspendForDriver_stub
   taihenForKernel_stub
   taihenModuleUtils_stub
 )

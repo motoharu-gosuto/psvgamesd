@@ -1,6 +1,7 @@
 #include <psp2kern/types.h>
 #include <psp2kern/kernel/modulemgr.h>
 #include <psp2kern/kernel/sysmem.h>
+#include <psp2kern/kernel/suspend.h>
 #include <psp2kern/kernel/threadmgr.h>
 #include <psp2kern/io/fcntl.h>
 #include <psp2kern/net/net.h>
@@ -23,12 +24,31 @@
 #define SceSdifForDriver_NID 0x96D306FA
 #define SceIofilemgrForDriver_NID 0x40FD29C7
 #define SceSblGcAuthMgrGcAuthForDriver_NID 0xC6627F5E
+#define SceThreadmgrForDriver_NID 0xE2C40624
+#define SceKernelUtilsForDriver_NID 0x496AD8B4
+
+//-------------
+
+typedef struct SceKernelCondOptParam 
+{
+	SceSize size;
+} SceKernelCondOptParam;
+
+typedef SceUID (sceKernelCreateCondForDriver_t)(const char* name, SceUInt attr, SceUID mutexId, const SceKernelCondOptParam* option);
+typedef int (sceKernelDeleteCondForDriver_t)(SceUID cid);
+typedef int (sceKernelWaitCondForDriver_t)(SceUID condId, unsigned int *timeout);
+typedef int (sceKernelSignalCondForDriver_t)(SceUID condId);
+typedef int (sceKernelSha1DigestForDriver_t)(char* in, int size, char* digest);
+
+sceKernelCreateCondForDriver_t* sceKernelCreateCondForDriver = 0;
+sceKernelDeleteCondForDriver_t* sceKernelDeleteCondForDriver = 0;
+sceKernelWaitCondForDriver_t* sceKernelWaitCondForDriver = 0;
+sceKernelSignalCondForDriver_t* sceKernelSignalCondForDriver = 0;
+sceKernelSha1DigestForDriver_t* sceKernelSha1DigestForDriver = 0;
 
 //-------------
 
 char* iso_path = "ux0:iso/XXX.bin";
-
-SceUID global_log_fd = -1;
 
 MBR mbr;
 
@@ -36,8 +56,13 @@ char sprintfBuffer[256];
 
 SceUID readThreadId = -1;
 
-SceUID req_sema;
-SceUID resp_sema;
+SceUID req_lock = -1;
+SceUID resp_lock = -1;
+
+SceUID req_cond = -1;
+SceUID resp_cond = -1;
+
+SceUID dumpThreadId = -1;
 
 //-------------
 
@@ -58,11 +83,14 @@ SceUID send_command_hook_id = -1;
 tai_hook_ref_t gc_cmd56_handshake_hook_ref;
 SceUID gc_cmd56_handshake_hook_id = -1;
 
+tai_hook_ref_t mmc_read_hook_ref;
+SceUID mmc_read_hook_id = -1;
+
 //-------------
 
 void FILE_GLOBAL_WRITE_LEN(char* msg)
 {
-  global_log_fd = ksceIoOpen("ux0:dump/game_log.txt", SCE_O_CREAT | SCE_O_APPEND | SCE_O_WRONLY, 0777);
+  SceUID global_log_fd = ksceIoOpen("ux0:dump/game_log.txt", SCE_O_CREAT | SCE_O_APPEND | SCE_O_WRONLY, 0777);
 
   if(global_log_fd >= 0)
   {
@@ -76,9 +104,6 @@ void FILE_GLOBAL_WRITE_LEN(char* msg)
 int emulate_read(int sector, char* buffer, int nSectors)
 {
   int res = 0;
-
-  //snprintf(sprintfBuffer, 256, "sector: %x nSectors: %x\n", sector, nSectors);
-  //FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
 
   SceOff offset = (SceOff)sector * (SceOff)SD_DEFAULT_SECTOR_SIZE; //DO NOT REMOVE THE CASTS!
   SceSize size = nSectors * SD_DEFAULT_SECTOR_SIZE;
@@ -117,12 +142,33 @@ int emulate_read(int sector, char* buffer, int nSectors)
     }
   }
 
-  //snprintf(sprintfBuffer, 256, "result: %x\n", res);
+  //snprintf(sprintfBuffer, 256, "sector: %x nSectors: %x result: %x\n", sector, nSectors, res);
   //FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
 
   return res;
 }
 
+int emulate_read_sd(sd_context_part* ctx, int sector, char* buffer, int nSectors)
+{
+  int res = TAI_CONTINUE(int, sd_read_hook_ref, ctx, sector, buffer, nSectors);
+
+  //snprintf(sprintfBuffer, 256, "sector: %x nSectors: %x result: %x\n", sector, nSectors, res);
+  //FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
+
+  return res;
+}
+
+int emulate_read_mmc(sd_context_part* ctx, int sector, char* buffer, int nSectors)
+{
+  int res = TAI_CONTINUE(int, mmc_read_hook_ref, ctx, sector,	buffer, nSectors);
+
+  //snprintf(sprintfBuffer, 256, "sector: %x nSectors: %x result: %x\n", sector, nSectors, res);
+  //FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
+
+  return res;
+}
+
+sd_context_part* g_ctx = 0;
 int g_sector = 0;
 char* g_buffer = 0;
 int g_nSectors = 0;
@@ -134,16 +180,131 @@ int read_thread(SceSize args, void *argp)
 
   while(1)
   {
-    //wait for request
-    ksceKernelWaitSema(req_sema, 1, NULL);
+    //lock mutex
+    int res = ksceKernelLockMutex(req_lock, 1, 0);
+    if(res < 0)
+    {
+      snprintf(sprintfBuffer, 256, "failed to ksceKernelLockMutex req_lock : %x\n", res);
+      FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
+    }
 
-    g_res = emulate_read(g_sector, g_buffer, g_nSectors);
+    //wait for request
+    res = sceKernelWaitCondForDriver(req_cond, 0);
+    if(res < 0)
+    {
+      snprintf(sprintfBuffer, 256, "failed to sceKernelWaitCondForDriver req_cond : %x\n", res);
+      FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
+    }
+
+    //unlock mutex
+    res = ksceKernelUnlockMutex(req_lock, 1);
+    if(res < 0)
+    {
+      snprintf(sprintfBuffer, 256, "failed to ksceKernelUnlockMutex req_lock : %x\n", res);
+      FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
+    }
+    
+    //g_res = emulate_read(g_sector, g_buffer, g_nSectors);
+
+    /*
+    char sha1[0x14];
+    sceKernelSha1DigestForDriver(g_buffer, g_nSectors * SD_DEFAULT_SECTOR_SIZE, sha1);
+    */
+
+    g_res = emulate_read_sd(g_ctx, g_sector, g_buffer, g_nSectors);
+
+    //g_res = emulate_read_mmc(g_ctx, g_sector, g_buffer, g_nSectors);
+
+    /*
+    char sha2[0x14];
+    sceKernelSha1DigestForDriver(g_buffer, g_nSectors * SD_DEFAULT_SECTOR_SIZE, sha2);
+
+    if(memcmp(sha1, sha2, 0x14) != 0)
+    {
+      snprintf(sprintfBuffer, 256, "Invalid read at sector: %x nSectors: %x\n", g_sector, g_nSectors);
+      FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
+    }
+    */
 
     //return response
-    ksceKernelSignalSema(resp_sema, 1);
+    sceKernelSignalCondForDriver(resp_cond);
   }
   
   return 0;  
+}
+
+#define DUMP_BLOCK_SIZE 0x10
+
+char dump_buffer[SD_DEFAULT_SECTOR_SIZE * DUMP_BLOCK_SIZE];
+
+int dump_thread(SceSize args, void *argp)
+{
+  FILE_GLOBAL_WRITE_LEN("Started Dump Thread\n");
+
+  SceUID dev_fd = ksceIoOpen("sdstor0:gcd-lp-ign-entire", SCE_O_RDONLY, 0777);
+
+  if(dev_fd >= 0)
+  {
+    FILE_GLOBAL_WRITE_LEN("Opened sd dev\n");
+
+    SceUID out_fd = ksceIoOpen("ux0:iso/SAO_Hollow_Fragment.bin", SCE_O_CREAT | SCE_O_APPEND | SCE_O_WRONLY, 0777);
+
+    if(out_fd >= 0)
+    {
+      FILE_GLOBAL_WRITE_LEN("Opened output file\n");
+
+      //get mbr data
+      MBR dump_mbr;
+
+      ksceIoRead(dev_fd, &dump_mbr, sizeof(MBR));
+
+      if(memcmp(dump_mbr.header, SCEHeader, 0x20) == 0)
+      {
+        snprintf(sprintfBuffer, 256, "max sector in sd dev: %x\n", dump_mbr.sizeInBlocks);
+        FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
+
+        //seek to beginning
+        ksceIoLseek(dev_fd, 0, SEEK_SET);
+
+        //dump sectors
+        SceSize nBlocks = dump_mbr.sizeInBlocks / DUMP_BLOCK_SIZE;
+        for(int i = 0; i < nBlocks; i++)
+        {
+          if((i % 0x1000) == 0)
+          {
+            snprintf(sprintfBuffer, 256, "%x from %x\n", i, nBlocks);
+            FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
+
+            ksceKernelPowerTick(SCE_KERNEL_POWER_TICK_DISABLE_AUTO_SUSPEND);
+          }
+
+          ksceIoRead(dev_fd, dump_buffer, SD_DEFAULT_SECTOR_SIZE * DUMP_BLOCK_SIZE);
+
+          ksceIoWrite(out_fd, dump_buffer, SD_DEFAULT_SECTOR_SIZE * DUMP_BLOCK_SIZE);
+        }
+
+        FILE_GLOBAL_WRITE_LEN("Dump finished\n");
+      }
+      else
+      {
+        FILE_GLOBAL_WRITE_LEN("SCE header is invalid\n");
+      }
+
+      ksceIoClose(out_fd);
+    }
+    else
+    {
+      FILE_GLOBAL_WRITE_LEN("Failed to open output file\n");
+    }
+
+    ksceIoClose(dev_fd);
+  }
+  else
+  {
+    FILE_GLOBAL_WRITE_LEN("Failed to open sd dev\n");
+  }
+
+  return 0;
 }
 
 //sd read operation can be redirected to file only in separate thread
@@ -151,15 +312,37 @@ int read_thread(SceSize args, void *argp)
 //when called from deep inside of Sdif driver subroutines
 int sd_read_hook_threaded(sd_context_part* ctx, int sector, char* buffer, int nSectors)
 {
+  g_ctx = ctx;
   g_sector = sector;
   g_buffer = buffer;
   g_nSectors = nSectors;
 
   //send request
-  ksceKernelSignalSema(req_sema, 1);
+  sceKernelSignalCondForDriver(req_cond);
+
+  //lock mutex
+  int res = ksceKernelLockMutex(resp_lock, 1, 0);
+  if(res < 0)
+  {
+    snprintf(sprintfBuffer, 256, "failed to ksceKernelLockMutex resp_lock : %x\n", res);
+    FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
+  }
 
   //wait for response
-  ksceKernelWaitSema(resp_sema, 1, NULL);
+  res = sceKernelWaitCondForDriver(resp_cond, 0);
+  if(res < 0)
+  {
+    snprintf(sprintfBuffer, 256, "failed to sceKernelWaitCondForDriver resp_cond : %x\n", res);
+    FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
+  }
+
+  //unlock mutex
+  res = ksceKernelUnlockMutex(resp_lock, 1);
+  if(res < 0)
+  {
+    snprintf(sprintfBuffer, 256, "failed to ksceKernelUnlockMutex resp_lock : %x\n", res);
+    FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
+  }
 
   return g_res;
 }
@@ -228,6 +411,32 @@ int send_command_hook(sd_context_global* ctx, cmd_input* cmd_data1, cmd_input* c
   return res;
 }
 
+int send_command_custom_hook(sd_context_global* ctx, cmd_input* cmd_data1, cmd_input* cmd_data2, int nIter, int num)
+{
+  if(ksceSdifGetSdContextGlobal(SCE_SDIF_DEV_GAME_CARD) == ctx)
+  {
+    if(cmd_data1->command == 17 || cmd_data1->command == 18)
+    {
+      int res = TAI_CONTINUE(int, send_command_hook_ref, ctx, cmd_data1, cmd_data2, nIter, num);
+
+      snprintf(sprintfBuffer, 256, "command: %d res %x\n", cmd_data1->command, res);
+      FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
+
+      return res;
+    }
+    else
+    {
+      int res = TAI_CONTINUE(int, send_command_hook_ref, ctx, cmd_data1, cmd_data2, nIter, num);
+      return res;  
+    }
+  }
+  else
+  {
+    int res = TAI_CONTINUE(int, send_command_hook_ref, ctx, cmd_data1, cmd_data2, nIter, num);
+    return res;
+  }
+}
+
 //this hook gets all sensitive data that is cleaned up by GcAuthMgr function 0xBB451E83
 int get_5018_data()
 {
@@ -251,66 +460,6 @@ int get_5018_data()
         ksceIoClose(fd);
       }
     }
-
-    //this data is constant 0x02 and zeroes
-    /*
-    addr = 0;
-    ofstRes = module_get_offset(KERNEL_PID, gc_info.modid, 1, 0x544C, &addr);
-    if(ofstRes == 0)
-    {
-      char data_544C_buffer[0x20] = {0};
-
-      memcpy(data_544C_buffer, (char*)addr, 0x20);
-
-      SceUID fd = ksceIoOpen("ux0:dump/cmd56_key.bin", SCE_O_CREAT | SCE_O_APPEND | SCE_O_WRONLY, 0777);
-
-      if(fd >= 0)
-      {
-        ksceIoWrite(fd,data_544C_buffer, 0x20);
-        ksceIoClose(fd);
-      } 
-    }
-    */
-
-    //this data is not constant
-    /*
-    addr = 0;
-    ofstRes = module_get_offset(KERNEL_PID, gc_info.modid, 1, 0x4BC4, &addr);
-    if(ofstRes == 0)
-    {
-      char data_4BC4_buffer[0x30] = {0};
-
-      memcpy(data_4BC4_buffer, (char*)addr, 0x30);
-
-      SceUID fd = ksceIoOpen("ux0:dump/cmd56_key.bin", SCE_O_CREAT | SCE_O_APPEND | SCE_O_WRONLY, 0777);
-
-      if(fd >= 0)
-      {
-        ksceIoWrite(fd,data_4BC4_buffer, 0x30);
-        ksceIoClose(fd);
-      } 
-    }
-    */
-
-    //this data is constant
-    /*
-    addr = 0;
-    ofstRes = module_get_offset(KERNEL_PID, gc_info.modid, 1, 0x4FF8, &addr);
-    if(ofstRes == 0)
-    {
-      char data_4FF8_buffer[0x20] = {0};
-
-      memcpy(data_4FF8_buffer, (char*)addr, 0x20);
-
-      SceUID fd = ksceIoOpen("ux0:dump/cmd56_key.bin", SCE_O_CREAT | SCE_O_APPEND | SCE_O_WRONLY, 0777);
-
-      if(fd >= 0)
-      {
-        ksceIoWrite(fd,data_4FF8_buffer, 0x20);
-        ksceIoClose(fd);
-      } 
-    }
-    */
   }
 
   return 0;
@@ -326,6 +475,81 @@ int gc_cmd56_handshake_hook(int param0)
   return res;
 }
 
+int mmc_read_hook_through(sd_context_part* ctx, int	sector,	char* buffer, int nSectors)
+{
+  //make sure that only mmc operations are redirected
+  if(ksceSdifGetSdContextGlobal(SCE_SDIF_DEV_GAME_CARD) == ctx->gctx_ptr)
+  {
+    int res = TAI_CONTINUE(int, mmc_read_hook_ref, ctx, sector,	buffer, nSectors);
+    return res;
+  }
+  else
+  {
+    int res = TAI_CONTINUE(int, mmc_read_hook_ref, ctx, sector,	buffer, nSectors);
+    return res;
+  }
+}
+
+int mmc_read_hook(sd_context_part* ctx, int	sector,	char* buffer, int nSectors)
+{
+  //make sure that only mmc operations are redirected
+  if(ksceSdifGetSdContextGlobal(SCE_SDIF_DEV_GAME_CARD) == ctx->gctx_ptr)
+  {
+    return emulate_read(sector, buffer, nSectors);
+  }
+  else
+  {
+    int res = TAI_CONTINUE(int, mmc_read_hook_ref, ctx, sector,	buffer, nSectors);
+    return res;
+  }
+}
+
+int mmc_read_hook_threaded(sd_context_part* ctx, int	sector,	char* buffer, int nSectors)
+{
+  //make sure that only mmc operations are redirected
+  if(ksceSdifGetSdContextGlobal(SCE_SDIF_DEV_GAME_CARD) == ctx->gctx_ptr)
+  {
+    g_ctx = ctx;
+    g_sector = sector;
+    g_buffer = buffer;
+    g_nSectors = nSectors;
+
+    //send request
+    sceKernelSignalCondForDriver(req_cond);
+
+    //lock mutex
+    int res = ksceKernelLockMutex(resp_lock, 1, 0);
+    if(res < 0)
+    {
+      snprintf(sprintfBuffer, 256, "failed to ksceKernelLockMutex resp_lock : %x\n", res);
+      FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
+    }
+
+    //wait for response
+    res = sceKernelWaitCondForDriver(resp_cond, 0);
+    if(res < 0)
+    {
+      snprintf(sprintfBuffer, 256, "failed to sceKernelWaitCondForDriver resp_cond : %x\n", res);
+      FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
+    }
+
+    //unlock mutex
+    res = ksceKernelUnlockMutex(resp_lock, 1);
+    if(res < 0)
+    {
+      snprintf(sprintfBuffer, 256, "failed to ksceKernelUnlockMutex resp_lock : %x\n", res);
+      FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
+    }
+
+    return g_res;
+  }
+  else
+  {
+    int res = TAI_CONTINUE(int, mmc_read_hook_ref, ctx, sector,	buffer, nSectors);
+    return res;
+  }
+}
+
 int initialize_all_hooks()
 {
   tai_module_info_t sdstor_info;
@@ -335,13 +559,13 @@ int initialize_all_hooks()
     #ifdef ENABLE_SD_PATCHES
 
     #ifdef ENABLE_SEPARATE_READ_THREAD
-    sd_read_hook_id = taiHookFunctionImportForKernel(KERNEL_PID, &sd_read_hook_ref, "SceSdstor", SceSdifForDriver_NID, 0xb9593652, sd_read_hook_threaded);
+      sd_read_hook_id = taiHookFunctionImportForKernel(KERNEL_PID, &sd_read_hook_ref, "SceSdstor", SceSdifForDriver_NID, 0xb9593652, sd_read_hook_threaded);
     #else
-    #ifdef ENABLE_READ_THROUGH
-    sd_read_hook_id = taiHookFunctionImportForKernel(KERNEL_PID, &sd_read_hook_ref, "SceSdstor", SceSdifForDriver_NID, 0xb9593652, sd_read_hook_through);
-    #else
-    #endif
-    sd_read_hook_id = taiHookFunctionImportForKernel(KERNEL_PID, &sd_read_hook_ref, "SceSdstor", SceSdifForDriver_NID, 0xb9593652, sd_read_hook);
+      #ifdef ENABLE_READ_THROUGH
+      sd_read_hook_id = taiHookFunctionImportForKernel(KERNEL_PID, &sd_read_hook_ref, "SceSdstor", SceSdifForDriver_NID, 0xb9593652, sd_read_hook_through);
+      #else
+      sd_read_hook_id = taiHookFunctionImportForKernel(KERNEL_PID, &sd_read_hook_ref, "SceSdstor", SceSdifForDriver_NID, 0xb9593652, sd_read_hook);
+      #endif
     #endif
     
     //patch for proc_initialize_generic_2 - so that sd card type is not ignored
@@ -351,6 +575,20 @@ int initialize_all_hooks()
     #endif
 
     gc_cmd56_handshake_hook_id = taiHookFunctionImportForKernel(KERNEL_PID, &gc_cmd56_handshake_hook_ref, "SceSdstor", SceSblGcAuthMgrGcAuthForDriver_NID, 0x68781760, gc_cmd56_handshake_hook);
+
+    #ifdef ENABLE_MMC_READ
+
+    #ifdef ENABLE_MMC_SEPARATE_READ_THREAD
+      mmc_read_hook_id = taiHookFunctionImportForKernel(KERNEL_PID, &mmc_read_hook_ref, "SceSdstor", SceSdifForDriver_NID, 0x6f8d529b, mmc_read_hook_threaded);
+    #else
+      #ifdef ENABLE_MMC_READ_THROUGH
+      mmc_read_hook_id = taiHookFunctionImportForKernel(KERNEL_PID, &mmc_read_hook_ref, "SceSdstor", SceSdifForDriver_NID, 0x6f8d529b, mmc_read_hook_through);
+      #else
+      mmc_read_hook_id = taiHookFunctionImportForKernel(KERNEL_PID, &mmc_read_hook_ref, "SceSdstor", SceSdifForDriver_NID, 0x6f8d529b, mmc_read_hook);
+      #endif
+    #endif
+
+    #endif
   }
 
   tai_module_info_t sdif_info;
@@ -375,6 +613,10 @@ int initialize_all_hooks()
     //this hooks command send functoin which is the main function for executing all commands that are sent from Vita to SD/MMC devices
     send_command_hook_id = taiHookFunctionOffsetForKernel(KERNEL_PID, &send_command_hook_ref, sdif_info.modid, 0, 0x17E8, 1, send_command_hook);
 
+    #endif
+
+    #ifdef OVERRIDE_COMMANDS
+    send_command_hook_id = taiHookFunctionOffsetForKernel(KERNEL_PID, &send_command_hook_ref, sdif_info.modid, 0, 0x17E8, 1, send_command_custom_hook);
     #endif
   }
 
@@ -403,21 +645,30 @@ int deinitialize_all_hooks()
 
   if(gc_cmd56_handshake_hook_id >= 0)
     taiHookReleaseForKernel(gc_cmd56_handshake_hook_id, gc_cmd56_handshake_hook_ref);
+
+  if(mmc_read_hook_id >= 0)
+    taiHookReleaseForKernel(mmc_read_hook_id, mmc_read_hook_ref);
     
   return 0;
 }
 
-int module_start(SceSize argc, const void *args) 
+int initialize_threading()
 {
-  FILE_GLOBAL_WRITE_LEN("Startup iso driver\n");
+  req_lock = ksceKernelCreateMutex("req_lock", 0, 0, 0);
+  if(req_lock >= 0)
+    FILE_GLOBAL_WRITE_LEN("Created req_lock\n");
 
-  req_sema = ksceKernelCreateSema("req_sema", 0, 0, 1, NULL);
-  if(req_sema >= 0)
-    FILE_GLOBAL_WRITE_LEN("Created req sema\n");
+  req_cond = sceKernelCreateCondForDriver("req_cond", 0, req_lock, 0);
+  if(req_cond >= 0)
+    FILE_GLOBAL_WRITE_LEN("Created req_cond\n");
 
-  resp_sema = ksceKernelCreateSema("resp_sema", 0, 0, 1, NULL);
-  if(resp_sema >= 0)
-    FILE_GLOBAL_WRITE_LEN("Created resp sema\n");
+  resp_lock = ksceKernelCreateMutex("resp_lock", 0, 0, 0);
+  if(resp_lock >= 0)
+    FILE_GLOBAL_WRITE_LEN("Created resp_lock\n");
+
+  resp_cond = sceKernelCreateCondForDriver("resp_cond", 0, resp_lock, 0);
+  if(resp_cond >= 0)
+    FILE_GLOBAL_WRITE_LEN("Created resp_cond\n");
   
   readThreadId = ksceKernelCreateThread("ReadThread", &read_thread, 0x64, 0x1000, 0, 0, 0);
 
@@ -425,7 +676,118 @@ int module_start(SceSize argc, const void *args)
   {
     FILE_GLOBAL_WRITE_LEN("Created Read Thread\n");
 
-    int ret = ksceKernelStartThread(readThreadId, 0, 0);
+    int res = ksceKernelStartThread(readThreadId, 0, 0);
+  }
+
+  #ifdef ENABLE_DUMP_THREAD
+
+  dumpThreadId = ksceKernelCreateThread("DumpThread", &dump_thread, 0x64, 0x1000, 0, 0, 0);
+  
+  if(dumpThreadId >=0)
+  {
+    FILE_GLOBAL_WRITE_LEN("Created Dump Thread\n");
+
+    int res = ksceKernelStartThread(dumpThreadId, 0, 0);
+  }
+
+  #endif
+
+  return 0;
+}
+
+int deinitialize_threading()
+{
+  #ifdef ENABLE_DUMP_THREAD
+  
+  if(dumpThreadId >= 0)
+  {
+    int waitRet = 0;
+    ksceKernelWaitThreadEnd(dumpThreadId, &waitRet, 0);
+    
+    int delret = ksceKernelDeleteThread(dumpThreadId);
+  }
+
+  #endif
+
+  if(readThreadId >= 0)
+  {
+    int waitRet = 0;
+    ksceKernelWaitThreadEnd(readThreadId, &waitRet, 0);
+    
+    int delret = ksceKernelDeleteThread(readThreadId);
+  }
+
+  sceKernelDeleteCondForDriver(req_cond);
+  sceKernelDeleteCondForDriver(resp_cond);
+
+  ksceKernelDeleteMutex(req_lock);
+  ksceKernelDeleteMutex(resp_lock);
+
+  return 0;
+}
+
+int initialize_functions()
+{
+  int res = module_get_export_func(KERNEL_PID, "SceKernelThreadMgr", SceThreadmgrForDriver_NID, 0xDB6CD34A, (uintptr_t*)&sceKernelCreateCondForDriver);
+  if(res < 0)
+  {
+    snprintf(sprintfBuffer, 256, "failed to set sceKernelCreateCondForDriver : %x\n", res);
+    FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
+    return -1;
+  }
+
+  FILE_GLOBAL_WRITE_LEN("set sceKernelCreateCondForDriver\n");
+
+  res = module_get_export_func(KERNEL_PID, "SceKernelThreadMgr", SceThreadmgrForDriver_NID, 0xAEE0D27C, (uintptr_t*)&sceKernelDeleteCondForDriver);
+  if(res < 0)
+  {
+    snprintf(sprintfBuffer, 256, "failed to set sceKernelDeleteCondForDriver : %x\n", res);
+    FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
+    return -1;
+  }
+
+  FILE_GLOBAL_WRITE_LEN("set sceKernelDeleteCondForDriver\n");
+
+  res = module_get_export_func(KERNEL_PID, "SceKernelThreadMgr", SceThreadmgrForDriver_NID, 0xCC7E027D, (uintptr_t*)&sceKernelWaitCondForDriver);
+  if(res < 0)
+  {
+    snprintf(sprintfBuffer, 256, "failed to set sceKernelWaitCondForDriver : %x\n", res);
+    FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
+    return -1;
+  }
+
+  FILE_GLOBAL_WRITE_LEN("set sceKernelWaitCondForDriver\n");
+
+  res = module_get_export_func(KERNEL_PID, "SceKernelThreadMgr", SceThreadmgrForDriver_NID, 0xAC616150, (uintptr_t*)&sceKernelSignalCondForDriver);
+  if(res < 0)
+  {
+    snprintf(sprintfBuffer, 256, "failed to set sceKernelSignalCondForDriver : %x\n", res);
+    FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
+    return -1;
+  }
+
+  FILE_GLOBAL_WRITE_LEN("set sceKernelSignalCondForDriver\n");
+
+  res = module_get_export_func(KERNEL_PID, "SceSysmem", SceKernelUtilsForDriver_NID, 0x87DC7F2F, (uintptr_t*)&sceKernelSha1DigestForDriver);
+  if(res < 0)
+  {
+    snprintf(sprintfBuffer, 256, "failed to set sceKernelSha1DigestForDriver : %x\n", res);
+    FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
+    return -1;
+  }
+
+  FILE_GLOBAL_WRITE_LEN("set sceKernelSha1DigestForDriver\n");
+
+  return 0;
+}
+
+int module_start(SceSize argc, const void *args) 
+{
+  FILE_GLOBAL_WRITE_LEN("Startup iso driver\n");
+
+  if(initialize_functions() >= 0)
+  {
+    initialize_threading();
   }
 
   SceUID iso_fd = ksceIoOpen(iso_path, SCE_O_RDONLY, 0777);
@@ -458,19 +820,7 @@ int module_stop(SceSize argc, const void *args)
 {
   deinitialize_all_hooks();
 
-  if(readThreadId >= 0)
-  {
-    int waitRet = 0;
-    ksceKernelWaitThreadEnd(readThreadId, &waitRet, 0);
-    
-    int delret = ksceKernelDeleteThread(readThreadId);
-  }
-
-  if(req_sema >= 0)
-    ksceKernelDeleteMutex(req_sema);
-
-  if(resp_sema >= 0)
-    ksceKernelDeleteMutex(resp_sema);
+  deinitialize_threading();
   
   return SCE_KERNEL_STOP_SUCCESS;
 }
