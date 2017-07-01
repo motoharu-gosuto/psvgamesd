@@ -20,7 +20,7 @@ typedef struct cmd_input // size is 0x240
    uint32_t unk_1C;
 
    void* buffer; // cmd data buffer ptr
-   uint16_t size; // cmd buffer size
+   uint16_t b_size; // cmd buffer size
    uint16_t flags; // unknown
    uint32_t unk_28;
    uint32_t unk_2C;
@@ -87,7 +87,7 @@ typedef struct sd_context_data // size is 0xC0
     uint32_t unk_C;
     
     uint32_t dev_type_idx; // (1,2,3)
-    struct void* ctx; //pointer to custom context (sd_context_part_mmc*, sd_context_part_sd*, sd_context_part_wlanbt*)
+    void* ctx; //pointer to custom context (sd_context_part_mmc*, sd_context_part_sd*, sd_context_part_wlanbt*)
     uint32_t unk_18;
     uint32_t unk_1C;
 
@@ -206,25 +206,25 @@ typedef struct output_23a4ef01
 
 sd_context_global* ksceSdifGetSdContextGlobal(int sd_ctx_idx);
 
-sd_context_part* ksceSdifGetSdContextPartMmc(int sd_ctx_idx);
-sd_context_part* ksceSdifGetSdContextPartSd(int sd_ctx_idx);
-sd_context_part* ksceSdifGetSdContextPartSdio(int sd_ctx_idx);
+sd_context_part_mmc* ksceSdifGetSdContextPartMmc(int sd_ctx_idx);
+sd_context_part_sd* ksceSdifGetSdContextPartSd(int sd_ctx_idx);
+sd_context_part_wlanbt* ksceSdifGetSdContextPartSdio(int sd_ctx_idx);
 
 int ksceSdifGetCardInsertState1(int sd_ctx_idx);
 int ksceSdifGetCardInsertState2(int sd_ctx_idx);
 
-int ksceSdifInitializeSdContextPartMmc(int sd_ctx_index, sd_context_part** result);
-int ksceSdifInitializeSdContextPartSd(int sd_ctx_index, sd_context_part** result);
+int ksceSdifInitializeSdContextPartMmc(int sd_ctx_index, sd_context_part_mmc** result);
+int ksceSdifInitializeSdContextPartSd(int sd_ctx_index, sd_context_part_sd** result);
 
 //uses CMD17 for single sector and CMD23, CMD24 for multiple sectors
-int ksceSdifReadSectorAsync(sd_context_part* ctx, int sector, char* buffer, int nSectors);
-int ksceSdifReadSector(sd_context_part* ctx, int sector, char* buffer, int nSectors);
+int ksceSdifReadSectorAsync(void* ctx_part, int sector, char* buffer, int nSectors);
+int ksceSdifReadSector(void* ctx_part, int sector, char* buffer, int nSectors);
 
 //uses CMD18 for single sector and CMD23, CMD25 for multiple sectors
-int ksceSdifWriteSectorAsync(sd_context_part* ctx, int sector, char* buffer, int nSectors);
-int ksceSdifWriteSector(sd_context_part* ctx, int sector, char* buffer, int nSectors);
+int ksceSdifWriteSectorAsync(void* ctx_part, int sector, char* buffer, int nSectors);
+int ksceSdifWriteSector(void* ctx_part, int sector, char* buffer, int nSectors);
 
-int ksceSdifCopyCtx(sd_context_part* ctx, output_23a4ef01* unk0);
+int ksceSdifCopyCtx(void* ctx_part, output_23a4ef01* unk0);
 
 //=================================================
 

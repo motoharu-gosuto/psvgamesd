@@ -99,6 +99,19 @@ void FILE_GLOBAL_WRITE_LEN(char* msg)
   }  
 }
 
+int print_bytes(const char* data, int len)
+{
+  for(int i = 0; i < len; i++)
+  {
+    snprintf(sprintfBuffer, 256, "%02x", data[i]);
+    FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
+  }
+
+  FILE_GLOBAL_WRITE_LEN("\n");
+
+  return 0;
+}
+
 //-------------
 
 int emulate_read(int sector, char* buffer, int nSectors)
@@ -148,9 +161,9 @@ int emulate_read(int sector, char* buffer, int nSectors)
   return res;
 }
 
-int emulate_read_sd(sd_context_part* ctx, int sector, char* buffer, int nSectors)
+int emulate_read_sd(void* ctx_part, int sector, char* buffer, int nSectors)
 {
-  int res = TAI_CONTINUE(int, sd_read_hook_ref, ctx, sector, buffer, nSectors);
+  int res = TAI_CONTINUE(int, sd_read_hook_ref, ctx_part, sector, buffer, nSectors);
 
   //snprintf(sprintfBuffer, 256, "sector: %x nSectors: %x result: %x\n", sector, nSectors, res);
   //FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
@@ -158,9 +171,9 @@ int emulate_read_sd(sd_context_part* ctx, int sector, char* buffer, int nSectors
   return res;
 }
 
-int emulate_read_mmc(sd_context_part* ctx, int sector, char* buffer, int nSectors)
+int emulate_read_mmc(void* ctx_part, int sector, char* buffer, int nSectors)
 {
-  int res = TAI_CONTINUE(int, mmc_read_hook_ref, ctx, sector,	buffer, nSectors);
+  int res = TAI_CONTINUE(int, mmc_read_hook_ref, ctx_part, sector,	buffer, nSectors);
 
   //snprintf(sprintfBuffer, 256, "sector: %x nSectors: %x result: %x\n", sector, nSectors, res);
   //FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
@@ -168,7 +181,7 @@ int emulate_read_mmc(sd_context_part* ctx, int sector, char* buffer, int nSector
   return res;
 }
 
-sd_context_part* g_ctx = 0;
+void* g_ctx_part = 0;
 int g_sector = 0;
 char* g_buffer = 0;
 int g_nSectors = 0;
@@ -211,9 +224,9 @@ int read_thread(SceSize args, void *argp)
     sceKernelSha1DigestForDriver(g_buffer, g_nSectors * SD_DEFAULT_SECTOR_SIZE, sha1);
     */
 
-    g_res = emulate_read_sd(g_ctx, g_sector, g_buffer, g_nSectors);
+    g_res = emulate_read_sd(g_ctx_part, g_sector, g_buffer, g_nSectors);
 
-    //g_res = emulate_read_mmc(g_ctx, g_sector, g_buffer, g_nSectors);
+    //g_res = emulate_read_mmc(g_ctx_part, g_sector, g_buffer, g_nSectors);
 
     /*
     char sha2[0x14];
@@ -310,9 +323,9 @@ int dump_thread(SceSize args, void *argp)
 //sd read operation can be redirected to file only in separate thread
 //it looks like file i/o api causes some internal locks/conflicts
 //when called from deep inside of Sdif driver subroutines
-int sd_read_hook_threaded(sd_context_part* ctx, int sector, char* buffer, int nSectors)
+int sd_read_hook_threaded(void* ctx_part, int sector, char* buffer, int nSectors)
 {
-  g_ctx = ctx;
+  g_ctx_part = ctx_part;
   g_sector = sector;
   g_buffer = buffer;
   g_nSectors = nSectors;
@@ -348,15 +361,15 @@ int sd_read_hook_threaded(sd_context_part* ctx, int sector, char* buffer, int nS
 }
 
 //sd read operation hook that redirects directly to file (without separate thread)
-int sd_read_hook(sd_context_part* ctx, int sector, char* buffer, int nSectors)
+int sd_read_hook(void* ctx_part, int sector, char* buffer, int nSectors)
 {
   return emulate_read(sector, buffer, nSectors);
 }
 
 //sd read operation hook that redirects directly to sd card (physical read)
-int sd_read_hook_through(sd_context_part* ctx, int sector, char* buffer, int nSectors)
+int sd_read_hook_through(void* ctx_part, int sector, char* buffer, int nSectors)
 {
-  int res = TAI_CONTINUE(int, sd_read_hook_ref, ctx, sector, buffer, nSectors);
+  int res = TAI_CONTINUE(int, sd_read_hook_ref, ctx_part, sector, buffer, nSectors);
   return res;
 }
 
@@ -380,9 +393,9 @@ int set_5018_data()
 //this is a hook for sd init operation (mmc init operation is different)
 //we need to imitate cmd56 handshake after init
 //this is done by writing last cmd56 packet to correct location of GcAuthMgr module
-int init_sd_hook(int sd_ctx_index, sd_context_part** result)
+int init_sd_hook(int sd_ctx_index, void** ctx_part)
 {
-  int res = TAI_CONTINUE(int, init_sd_hook_ref, sd_ctx_index, result);
+  int res = TAI_CONTINUE(int, init_sd_hook_ref, sd_ctx_index, ctx_part);
   
   set_5018_data();
   
@@ -411,24 +424,41 @@ int send_command_hook(sd_context_global* ctx, cmd_input* cmd_data1, cmd_input* c
   return res;
 }
 
+int emulate_mmc_command(sd_context_global* ctx, cmd_input* cmd_data1, cmd_input* cmd_data2, int nIter, int num)
+{
+  int res = TAI_CONTINUE(int, send_command_hook_ref, ctx, cmd_data1, cmd_data2, nIter, num);
+
+  //there is a timing check for cmd56 in gcauthmgr so can not do much logging here (since it is slow)
+  //i know where this check is but it is not worth patching right now since cmd56 auth can be bypassed
+  if(cmd_data1->command != 56)
+  {
+    snprintf(sprintfBuffer, 256, "cmd1: %x cmd2: %x command: %d res %x\n", cmd_data1, cmd_data2, cmd_data1->command, res);
+    FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
+
+    snprintf(sprintfBuffer, 256, "cmd1: b_len: %x b: %x\n", cmd_data1->b_size, cmd_data1->buffer);
+    FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
+
+    if(cmd_data1->buffer > 0)
+       print_bytes(cmd_data1->buffer, cmd_data1->b_size);
+
+    if(cmd_data2 > 0)
+    {
+      snprintf(sprintfBuffer, 256, "cmd2: b_len: %x b: %x\n", cmd_data2->b_size, cmd_data2->buffer);
+      FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
+
+      if(cmd_data2->buffer > 0)
+       print_bytes(cmd_data2->buffer, cmd_data2->b_size);
+    }
+  }
+
+  return res;
+}
+
 int send_command_custom_hook(sd_context_global* ctx, cmd_input* cmd_data1, cmd_input* cmd_data2, int nIter, int num)
 {
   if(ksceSdifGetSdContextGlobal(SCE_SDIF_DEV_GAME_CARD) == ctx)
   {
-    if(cmd_data1->command == 17 || cmd_data1->command == 18)
-    {
-      int res = TAI_CONTINUE(int, send_command_hook_ref, ctx, cmd_data1, cmd_data2, nIter, num);
-
-      snprintf(sprintfBuffer, 256, "command: %d res %x\n", cmd_data1->command, res);
-      FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
-
-      return res;
-    }
-    else
-    {
-      int res = TAI_CONTINUE(int, send_command_hook_ref, ctx, cmd_data1, cmd_data2, nIter, num);
-      return res;  
-    }
+    return emulate_mmc_command(ctx, cmd_data1, cmd_data2, nIter, num);
   }
   else
   {
@@ -475,41 +505,41 @@ int gc_cmd56_handshake_hook(int param0)
   return res;
 }
 
-int mmc_read_hook_through(sd_context_part* ctx, int	sector,	char* buffer, int nSectors)
+int mmc_read_hook_through(void* ctx_part, int	sector,	char* buffer, int nSectors)
 {
   //make sure that only mmc operations are redirected
-  if(ksceSdifGetSdContextGlobal(SCE_SDIF_DEV_GAME_CARD) == ctx->gctx_ptr)
+  if(ksceSdifGetSdContextGlobal(SCE_SDIF_DEV_GAME_CARD) == ((sd_context_part_base*)ctx_part)->gctx_ptr)
   {
-    int res = TAI_CONTINUE(int, mmc_read_hook_ref, ctx, sector,	buffer, nSectors);
+    int res = TAI_CONTINUE(int, mmc_read_hook_ref, ctx_part, sector,	buffer, nSectors);
     return res;
   }
   else
   {
-    int res = TAI_CONTINUE(int, mmc_read_hook_ref, ctx, sector,	buffer, nSectors);
+    int res = TAI_CONTINUE(int, mmc_read_hook_ref, ctx_part, sector,	buffer, nSectors);
     return res;
   }
 }
 
-int mmc_read_hook(sd_context_part* ctx, int	sector,	char* buffer, int nSectors)
+int mmc_read_hook(void* ctx_part, int	sector,	char* buffer, int nSectors)
 {
   //make sure that only mmc operations are redirected
-  if(ksceSdifGetSdContextGlobal(SCE_SDIF_DEV_GAME_CARD) == ctx->gctx_ptr)
+  if(ksceSdifGetSdContextGlobal(SCE_SDIF_DEV_GAME_CARD) == ((sd_context_part_base*)ctx_part)->gctx_ptr)
   {
     return emulate_read(sector, buffer, nSectors);
   }
   else
   {
-    int res = TAI_CONTINUE(int, mmc_read_hook_ref, ctx, sector,	buffer, nSectors);
+    int res = TAI_CONTINUE(int, mmc_read_hook_ref, ctx_part, sector,	buffer, nSectors);
     return res;
   }
 }
 
-int mmc_read_hook_threaded(sd_context_part* ctx, int	sector,	char* buffer, int nSectors)
+int mmc_read_hook_threaded(void* ctx_part, int	sector,	char* buffer, int nSectors)
 {
   //make sure that only mmc operations are redirected
-  if(ksceSdifGetSdContextGlobal(SCE_SDIF_DEV_GAME_CARD) == ctx->gctx_ptr)
+  if(ksceSdifGetSdContextGlobal(SCE_SDIF_DEV_GAME_CARD) == ((sd_context_part_base*)ctx_part)->gctx_ptr)
   {
-    g_ctx = ctx;
+    g_ctx_part = ctx_part;
     g_sector = sector;
     g_buffer = buffer;
     g_nSectors = nSectors;
@@ -545,7 +575,7 @@ int mmc_read_hook_threaded(sd_context_part* ctx, int	sector,	char* buffer, int n
   }
   else
   {
-    int res = TAI_CONTINUE(int, mmc_read_hook_ref, ctx, sector,	buffer, nSectors);
+    int res = TAI_CONTINUE(int, mmc_read_hook_ref, ctx_part, sector,	buffer, nSectors);
     return res;
   }
 }

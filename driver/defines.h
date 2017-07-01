@@ -1,10 +1,10 @@
 #pragma once
 
 //enables all sd patches
-#define ENABLE_SD_PATCHES
+//#define ENABLE_SD_PATCHES
 
 //enables patch for low speed cards
-#define ENABLE_SD_LOW_SPEED_PATCH 
+//#define ENABLE_SD_LOW_SPEED_PATCH 
 
 //enables reading image in separate thread
 #define ENABLE_SEPARATE_READ_THREAD
@@ -14,11 +14,11 @@
 
 //enables reading operations from image in MMC mode
 //not compatible with sd reading
-//#define ENABLE_MMC_READ
+#define ENABLE_MMC_READ
 
-#define ENABLE_MMC_SEPARATE_READ_THREAD
-//#define ENABLE_MMC_READ_THROUGH
+//#define ENABLE_MMC_SEPARATE_READ_THREAD
+#define ENABLE_MMC_READ_THROUGH
 
-//#define OVERRIDE_COMMANDS
+#define OVERRIDE_COMMANDS
 
 //#define ENABLE_DUMP_THREAD
