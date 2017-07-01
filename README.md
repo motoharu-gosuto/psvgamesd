@@ -5,7 +5,8 @@ Set of tools to run PS Vita game dumps from SD card or from binary image
 
 Just a small note before you will try to use these tools.
 Currently game dumps can be run both from SD card and from binary dump.
-However you may encounter freezes during video cutscenes, glitches and graphical artifacts.
+This is done with read operation redirection to binary dump but it will still require SD card.
+There should be no freezes glitches and graphical artifacts unless your dump is damaged.
 
 To use kernel plugin you need to obtain one of these:
 - binary file with dump of game card.
@@ -82,4 +83,3 @@ to file with binary dump.
 - Remove requirement for cmd56 handshake data to be present. 
   This is related to NpDrm and requires significant amount of patches in Iofilemgr and PfsMgr.
   I am already working on it.
-- Investigate why there is a problem with freezes, glitches and artifacts.
