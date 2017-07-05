@@ -10,7 +10,14 @@ struct cmd_input;
 typedef struct cmd_input // size is 0x240
 {
    uint32_t size; // 0x240
+
+   //bit 10 (shift left 0x15) - request invalidate flag - invalidate vaddr_1C0 and vaddr_200
+   //this flag is used for CMD56 and CMD17
+   //bit 20 (shift left 0xB) - request mem_188 free - free memblock with uid mem_188
+
+   //bit 20 or bit 9 cancels invalidation (both must be clear)
    uint32_t state_flags; // interrupt handler completion flag
+
    uint32_t command;
    uint32_t argument;
    
@@ -19,17 +26,17 @@ typedef struct cmd_input // size is 0x240
                         //storage order is reversed
 
    void* buffer; // cmd data buffer ptr - dest for vaddr_1C0
-   uint16_t b_size; // cmd buffer size
-   uint16_t flags; // unknown
-   uint32_t error_code; //from interrupt handler
+   uint16_t flags1; // unknown
+   uint16_t flags2; // unknown
+   uint32_t error_code; //error from interrupt handler (confirmed)
    uint32_t unk_2C;
 
    uint8_t data0[0x30];   
    
    struct cmd_input* next_cmd;
-   uint32_t unk_64;
+   uint32_t unk_64; //some flag. must be 3 for invalidation to happen
    uint32_t array_index;
-   int(set_event_flag_callback*)(void* ctx);
+   int(*set_event_flag_callback)(void* ctx);
    
    SceUID evid; // event id SceSdif0, SceSdif1, SceSdif2 (SceSdif3 ?)
    struct cmd_input* secondary_cmd; // (when multiple commands are sent)
@@ -49,10 +56,13 @@ typedef struct cmd_input // size is 0x240
    uint32_t unk_190;
    uint32_t unk_194;
    void* base_198; //dest base for vaddr_200 (also ptr for invalidate)
+                   //data at base contains CMD17 data
+                   //data at base also contains fragments of CMD56 response
+                   //data at offset is unknown (zeroes)
    uint32_t offset_19C; //dest offset for vaddr_200 (also size for invalidate)
 
-   uint32_t size_1A0; //size of vaddr_1C0
-   uint32_t size_1A4; //size of vaddr_200
+   uint32_t size_1A0; //size of vaddr_1C0 - only valid if request invalidate flag is set
+   uint32_t size_1A4; //size of vaddr_200 - only valid if request invalidate flag is set
    void* paddr_1A8; //1 - phys address of vaddr_1C0
    void* paddr_1AC; //2 - phys address of vaddr_200
 
@@ -61,8 +71,13 @@ typedef struct cmd_input // size is 0x240
    uint32_t unk_1BC;
 
    char vaddr_1C0[0x40]; //1 - mapped to paddr_1A8 (invalidate 0x40)
+                         //  - only valid if request invalidate flag is set
+                         //  - contains fragments of CMD56 request/response
+                         //  - does not contain CMD17 data
 
    char vaddr_200[0x40]; //2 - mapped to paddr_1AC (invalidate 0x40)
+                         //  - only valid if request invalidate flag is set
+                         //  - contains unknown data (zeroes)
 } cmd_input;
 
 typedef struct sd_context_data // size is 0xC0

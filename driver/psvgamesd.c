@@ -432,23 +432,106 @@ int emulate_mmc_command(sd_context_global* ctx, cmd_input* cmd_data1, cmd_input*
   //i know where this check is but it is not worth patching right now since cmd56 auth can be bypassed
   if(cmd_data1->command != 56)
   {
-    snprintf(sprintfBuffer, 256, "cmd1: %x cmd2: %x command: %d res %x\n", cmd_data1, cmd_data2, cmd_data1->command, res);
+    snprintf(sprintfBuffer, 256, "cmd1: %x cmd2: %x command: %d arg: %x res %x\n", cmd_data1, cmd_data2, cmd_data1->command, cmd_data1->argument, res);
     FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
 
-    snprintf(sprintfBuffer, 256, "cmd1: b_len: %x b: %x\n", cmd_data1->b_size, cmd_data1->buffer);
+    snprintf(sprintfBuffer, 256, "cmd1: b: %x state: %x\n", cmd_data1->buffer, cmd_data1->state_flags);
     FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
 
+    snprintf(sprintfBuffer, 256, "cmd1: size_1A0: %x size_1A4: %x\n", cmd_data1->size_1A0, cmd_data1->size_1A4);
+    FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
+
+    snprintf(sprintfBuffer, 256, "cmd1: base_198: %x offset_19C: %x\n", cmd_data1->base_198, cmd_data1->offset_19C);
+    FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
+
+    snprintf(sprintfBuffer, 256, "cmd1: unk_64: %x error_code: %x\n", cmd_data1->unk_64, cmd_data1->error_code);
+    FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
+
+    //print_bytes(cmd_data1->response, 0x10);
+
+    /*
     if(cmd_data1->buffer > 0)
        print_bytes(cmd_data1->buffer, cmd_data1->b_size);
+    */
+
+    if((((int)cmd_data1->state_flags) << 0x15) < 0)
+    {
+      FILE_GLOBAL_WRITE_LEN("INVALIDATE\n");
+      //print_bytes(cmd_data1->base_198, 0x200);
+
+      //print_bytes(cmd_data1->vaddr_1C0, 0x10);
+      //print_bytes(cmd_data1->vaddr_200, 0x10);
+
+      //print_bytes(cmd_data1->base_198 + cmd_data1->offset_19C, cmd_data1->size_1A4);
+    }
+
+    //print_bytes(cmd_data1->vaddr_80, 0x10);
+
+    if(((0x801 << 9) & cmd_data1->state_flags) != 0)
+      FILE_GLOBAL_WRITE_LEN("SKIP INVALIDATE\n");
+
+    if((((int)cmd_data1->state_flags) << 0xB) < 0)
+     FILE_GLOBAL_WRITE_LEN("FREE mem_188\n");
 
     if(cmd_data2 > 0)
     {
-      snprintf(sprintfBuffer, 256, "cmd2: b_len: %x b: %x\n", cmd_data2->b_size, cmd_data2->buffer);
+      snprintf(sprintfBuffer, 256, "cmd2: b: %x state: %x\n", cmd_data2->buffer, cmd_data2->state_flags);
       FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
 
+      snprintf(sprintfBuffer, 256, "cmd2: size_1A0: %x size_1A4: %x\n", cmd_data2->size_1A0, cmd_data2->size_1A4);
+      FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
+
+      //print_bytes(cmd_data2->response, 0x10);
+
+      /*
       if(cmd_data2->buffer > 0)
        print_bytes(cmd_data2->buffer, cmd_data2->b_size);
+      */
+
+      if((((int)cmd_data2->state_flags) << 0x15) < 0)
+      {
+        FILE_GLOBAL_WRITE_LEN("INVALIDATE\n");
+
+        //print_bytes(cmd_data2->vaddr_1C0, 0x10);
+        //print_bytes(cmd_data2->vaddr_200, 0x10);
+      }
     }
+  }
+  else
+  {
+    /*
+    snprintf(sprintfBuffer, 256, "CMD56 cmd1: b_len: %x b: %x state: %x\n", cmd_data1->b_size, cmd_data1->buffer, cmd_data1->state_flags);
+    FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
+
+    snprintf(sprintfBuffer, 256, "CMD56 cmd1: size_1A0: %x size_1A4: %x\n", cmd_data1->size_1A0, cmd_data1->size_1A4);
+    FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
+
+    snprintf(sprintfBuffer, 256, "CMD56 cmd1: base_198: %x offset_19C: %x\n", cmd_data1->base_198, cmd_data1->offset_19C);
+    FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
+
+    if((((int)cmd_data1->state_flags) << 0x15) < 0)
+    {
+      FILE_GLOBAL_WRITE_LEN("INVALIDATE\n");
+      //print_bytes(cmd_data1->base_198, 0x200);
+
+      //print_bytes(cmd_data1->base_198 + cmd_data1->offset_19C, cmd_data1->size_1A4);
+    }
+
+    if(cmd_data2 > 0)
+    {
+      snprintf(sprintfBuffer, 256, "CMD56 cmd2: b_len: %x b: %x state: %x\n", cmd_data2->b_size, cmd_data2->buffer, cmd_data2->state_flags);
+      FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
+
+      snprintf(sprintfBuffer, 256, "CMD56 cmd2: size_1A0: %x size_1A4: %x\n", cmd_data2->size_1A0, cmd_data2->size_1A4);
+      FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
+
+      if((((int)cmd_data2->state_flags) << 0x15) < 0)
+        FILE_GLOBAL_WRITE_LEN("INVALIDATE\n");
+    }
+
+    //print_bytes(cmd_data1->vaddr_1C0, cmd_data1->size_1A0);
+    //print_bytes(cmd_data1->vaddr_200, cmd_data1->size_1A4);
+    */
   }
 
   return res;
