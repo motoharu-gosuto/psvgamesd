@@ -26,8 +26,8 @@ typedef struct cmd_input // size is 0x240
                         //storage order is reversed
 
    void* buffer; // cmd data buffer ptr - dest for vaddr_1C0
-   uint16_t flags1; // unknown
-   uint16_t flags2; // unknown
+   uint16_t resp_block_size_24; // block size of response. typically 0x200 which is default sector size
+   uint16_t resp_n_blocks_26; // number of blocks in response. typically number of sectors to read/write
    uint32_t error_code; //error from interrupt handler (confirmed)
    uint32_t unk_2C;
 
@@ -152,8 +152,8 @@ typedef struct sd_context_part_base
 {
    struct sd_context_global* gctx_ptr;
    uint32_t unk_4;
-   uint32_t size; //cmd buffer size
-   uint32_t unk_C; //0 for mmc however 0x200 for sd, can be size
+   uint32_t def_sector_size_mmc; // looks like default sector size - used in mmc read/write commands for resp_block_size_24
+   uint32_t def_sector_size_sd;  // looks like default sector size - used in sd read/write commands for resp_block_size_24
 
    uint8_t unk_10; //can be padding
    uint8_t CID[15]; //this is CID data but in reverse
