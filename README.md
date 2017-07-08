@@ -5,7 +5,8 @@ Set of tools to run PS Vita game dumps from SD card or from binary image
 
 Just a small note before you will try to use these tools.
 Currently game dumps can be run both from SD card and from binary dump.
-This is done with read operation redirection to binary dump but it will still require SD card.
+Binary dumps are now run by emulating MMC card hardware (kinda iso driver). Some tweaks are required as well.
+SD card is no longer required to run binary dump.
 There should be no freezes glitches and graphical artifacts unless your dump is damaged.
 
 To use kernel plugin you need to obtain one of these:
@@ -76,10 +77,39 @@ to file with binary dump.
 
 #define ENABLE_READ_THROUGH - this define enables redirection to SD card
 
+
+#define ENABLE_MMC_READ - enable mmc read hooks
+
+#define ENABLE_MMC_SEPARATE_READ_THREAD - redirect MMC read operations to separate thread
+
+#define ENABLE_MMC_READ_THROUGH - redirect MMC read operations to MMC card
+
+#define OVERRIDE_COMMANDS_DEBUG - hook MMC command execution and produce debug output
+
+#define OVERRIDE_COMMANDS_EMU - redirect MMC commands to MMC card emulator (kinda iso driver)
+
+#define OVERRIDE_CMD56_HANDSHAKE - override cmd56 handshare with custom handler if you know the keys (keys are dumped by default)
+
+#define ENABLE_DUMP_THREAD - starts separate thread that dumps -entire mmc device
+
+# Emulating MMC card
+
+Emulation is pretty simple. All that is required is to emulate card initialization according to MMC protocol.
+
+There could be another way to do things - just hook initialization subroutine all together and return success result.
+
+This way it is not required to emulate each and every MMC command. I am not sure about side effects in this scenario though.
+
+Current issues in emulation include:
+
+- CMD17 is glitchy and goes to infinite loop after second command. This can be fixed by hooking read operation subroutine all together. However I do not like this approach.
+
+- CMD18 / CMD23 is not tested.
+
+- Need to add software emulation of card insert/remove. Currently I am connecting INS and GND pins with DIP switch.
+
 # Next milestones
 
-- Emulate not only CMD17 and CMD18 commands (read/write) but all other SD commands. 
-  This is possible and will allow to avoid using SD card.
 - Remove requirement for cmd56 handshake data to be present. 
   This is related to NpDrm and requires significant amount of patches in Iofilemgr and PfsMgr.
   I am already working on it.
