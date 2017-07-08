@@ -165,7 +165,9 @@ typedef struct sd_context_part_mmc // size is 0x398
 {
    sd_context_part_base ctxb;
    
-   uint8_t data[0x360];
+   uint8_t EXT_CSD[0x200]; // 0x30
+
+   uint8_t data_230[0x160];
    
    void* unk_390;
    uint32_t unk_394;
