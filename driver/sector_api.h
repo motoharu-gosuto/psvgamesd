@@ -66,9 +66,8 @@ typedef struct cmd_input // size is 0x240
    void* paddr_1A8; //1 - phys address of vaddr_1C0
    void* paddr_1AC; //2 - phys address of vaddr_200
 
-   SceInt64 wide_time; // 0x1B0
-   uint32_t unk_1B8;
-   uint32_t unk_1BC;
+   SceInt64 wide_time1; // 0x1B0
+   SceInt64 wide_time2; // 0x1B8 - relevant for commands that need to wait for data on DAT lines
 
    char vaddr_1C0[0x40]; //1 - mapped to paddr_1A8 (invalidate 0x40)
                          //  - only valid if request invalidate flag is set
