@@ -1,5 +1,7 @@
 #pragma once
 
+#include <psp2kern/types.h>
+
 #include <stdint.h>
 
 #pragma pack(push, 1)
@@ -21,9 +23,23 @@ typedef struct cmd_input // size is 0x240
    uint32_t command;
    uint32_t argument;
    
-   char response[0x10]; //stores normal response without command index and crc-7
-                        //can also store CID or CSD. crr-7 will be cleared
-                        //storage order is reversed
+   //stores normal response without command index and crc-7
+   //can also store CID or CSD. crr-7 will be cleared
+   //storage order is reversed
+   union
+   {
+     struct
+     {
+        char data[0x10];
+     } db;
+     struct
+     {
+        uint32_t dw0;
+        uint32_t dw1;
+        uint32_t dw2;
+        uint32_t dw3;
+     } dw;
+   }response;
 
    void* buffer; // cmd data buffer ptr - dest for vaddr_1C0
    uint16_t resp_block_size_24; // block size of response. typically 0x200 which is default sector size

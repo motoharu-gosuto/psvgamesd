@@ -29,6 +29,8 @@ add_definitions(-DNO_PTHREADS)
 add_executable(psvgamesd
   psvgamesd.c
   cmd56_key.c
+  mmc_emu.c
+  global_log.c
 )
 
 target_link_libraries(psvgamesd
