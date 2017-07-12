@@ -217,7 +217,53 @@ typedef struct output_23a4ef01
     int unk_C;
 }output_23a4ef01;
 
+typedef struct unknown_1C2C
+{
+    uint8_t data[0x1C];
+}unknown_1C2C;
+
+struct interrupt_info;
+
+typedef struct interrupt_argument
+{
+    uint32_t unk_0;
+    SceUID SceSdstorRequest_evid; // event id
+    SceUID SceSdstorOpSync_evid; // event id
+    struct interrupt_info* intr_info; //
+
+    struct unknown_1C2C* unk_10;
+    uint32_t unk_14; // = 0
+    uint32_t unk_18; // = 0
+    uint32_t unk_1C; // = 0
+
+    uint32_t unk_20; // = 0
+
+    uint8_t intr_table_index; // check interrupt table section
+    uint8_t unk_25; // = 0
+    uint8_t unk_26; // = 0
+    uint8_t unk_27;
+}interrupt_argument;
+
+typedef int (insert_handler)(int unk, interrupt_argument* arg);
+typedef int (remove_handler)(int unk, interrupt_argument* arg);
+
+typedef struct interrupt_info
+{
+    insert_handler* SceSdstorCardInsert_handler;
+    remove_handler* SceSdstorCardRemove_handler;
+    uint8_t intr_table_index; // check interrupt table section
+    uint8_t SceSdstorCardInsert_subintr_code;
+    uint8_t SceSdstorCardRemove_subintr_code;
+    uint8_t unk_B;
+}interrupt_info;
+
 #pragma pack(pop)
+
+#define SCE_SDSTOR_SDIF0_INDEX 0
+#define SCE_SDSTOR_SDIF1_INDEX 1
+#define SCE_SDSTOR_MSINS_INDEX 2
+#define SCE_SDSTOR_INT15_INDEX 3
+#define SCE_SDSTOR_SDIF3_INDEX 4
 
 //TODO: API does not have best naming. please check the wiki also
 

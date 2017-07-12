@@ -2,6 +2,8 @@
 
 #include <psp2kern/types.h>
 
+#include "sector_api.h"
+
 extern SceUID req_lock;
 extern SceUID resp_lock;
 
@@ -29,3 +31,6 @@ extern sceKernelDeleteCondForDriver_t* sceKernelDeleteCondForDriver;
 extern sceKernelWaitCondForDriver_t* sceKernelWaitCondForDriver;
 extern sceKernelSignalCondForDriver_t* sceKernelSignalCondForDriver;
 extern sceKernelSha1DigestForDriver_t* sceKernelSha1DigestForDriver;
+
+extern insert_handler* sceSdifInsertHandler;
+extern remove_handler* sceSdifRemoveHandler;
