@@ -44,7 +44,7 @@ remove_handler* sceSdifRemoveHandler = 0;
 
 //-------------
 
-char* iso_path = "ux0:iso/XXXbin";
+char* iso_path = "ux0:iso/XXX.bin";
 
 MBR mbr;
 
@@ -59,6 +59,8 @@ SceUID req_cond = -1;
 SceUID resp_cond = -1;
 
 SceUID dumpThreadId = -1;
+
+SceUID removeInsertCardThreadId = -1;
 
 //-------------
 
@@ -117,11 +119,20 @@ interrupt_argument* get_int_arg(int index)
   if (taiGetModuleInfoForKernel(KERNEL_PID, "SceSdstor", &sdstor_info) >= 0) 
   {
     interrupt_argument* int_arg = 0;
-    module_get_offset(KERNEL_PID, sdstor_info.modid, 1, 0x1B20 + sizeof(interrupt_argument) * index, (uintptr_t*)&int_arg);
-    return int_arg;
+    int res = module_get_offset(KERNEL_PID, sdstor_info.modid, 1, 0x1B20 + sizeof(interrupt_argument) * index, (uintptr_t*)&int_arg);
+    if(res < 0)
+    {
+      FILE_GLOBAL_WRITE_LEN("get_int_arg failed\n");
+      return 0;
+    }
+    else
+    {
+      return int_arg;
+    }
   }
   else
   {
+    FILE_GLOBAL_WRITE_LEN("get_int_arg failed\n");
     return 0;
   }
 }
@@ -131,9 +142,13 @@ int insert_game_card()
   if(sceSdifInsertHandler > 0)
   {
     FILE_GLOBAL_WRITE_LEN("Signal insert\n");
-    sceSdifInsertHandler(0, get_int_arg(SCE_SDSTOR_SDIF1_INDEX));
+    return sceSdifInsertHandler(0, get_int_arg(SCE_SDSTOR_SDIF1_INDEX));
   }
-  return -1;
+  else
+  {
+    FILE_GLOBAL_WRITE_LEN("Signal insert failed\n");
+    return -1;
+  }
 }
 
 int remove_game_card()
@@ -141,16 +156,23 @@ int remove_game_card()
   if(sceSdifRemoveHandler > 0)
   {
     FILE_GLOBAL_WRITE_LEN("Signal remove\n");
-    sceSdifRemoveHandler(0, get_int_arg(SCE_SDSTOR_SDIF1_INDEX));
+    return sceSdifRemoveHandler(0, get_int_arg(SCE_SDSTOR_SDIF1_INDEX));
   }
-  return -1;
+  else
+  {
+    FILE_GLOBAL_WRITE_LEN("Signal remove failed\n");
+    return -1;
+  }
 }
 
 int insert_game_card_emu()
 {
   interrupt_argument* ia = get_int_arg(SCE_SDSTOR_SDIF1_INDEX);
   if(ia <= 0)
+  {
+    FILE_GLOBAL_WRITE_LEN("Signal insert failed\n");
     return -1;
+  }
 
   FILE_GLOBAL_WRITE_LEN("Signal insert\n");
   return ksceKernelSetEventFlag(ia->SceSdstorRequest_evid, 0x10);
@@ -160,10 +182,26 @@ int remove_game_card_emu()
 {
   interrupt_argument* ia = get_int_arg(SCE_SDSTOR_SDIF1_INDEX);
   if(ia <= 0)
+  {
+    FILE_GLOBAL_WRITE_LEN("Signal remove failed\n");
     return -1;
+  }
 
   FILE_GLOBAL_WRITE_LEN("Signal remove\n");
   return ksceKernelSetEventFlag(ia->SceSdstorRequest_evid, 0x1);
+}
+
+int remove_insert_card_thread(SceSize args, void *argp)
+{
+  FILE_GLOBAL_WRITE_LEN("Started RemoveInsertCard Thread\n");
+
+  ksceKernelDelayThread(1000000 * 60);
+  remove_game_card();
+
+  //ksceKernelDelayThread(1000 * 500);
+  //insert_game_card();
+
+  return 0;
 }
 
 //-------------
@@ -928,7 +966,7 @@ int initialize_threading()
   
   readThreadId = ksceKernelCreateThread("ReadThread", &read_thread, 0x64, 0x1000, 0, 0, 0);
 
-  if(readThreadId >=0)
+  if(readThreadId >= 0)
   {
     FILE_GLOBAL_WRITE_LEN("Created Read Thread\n");
 
@@ -939,7 +977,7 @@ int initialize_threading()
 
   dumpThreadId = ksceKernelCreateThread("DumpThread", &dump_thread, 0x64, 0x1000, 0, 0, 0);
   
-  if(dumpThreadId >=0)
+  if(dumpThreadId >= 0)
   {
     FILE_GLOBAL_WRITE_LEN("Created Dump Thread\n");
 
@@ -948,11 +986,28 @@ int initialize_threading()
 
   #endif
 
+  removeInsertCardThreadId = ksceKernelCreateThread("RemoveInsertCardThread", &remove_insert_card_thread, 0x64, 0x1000, 0, 0, 0);
+
+  if(removeInsertCardThreadId >= 0)
+  {
+    FILE_GLOBAL_WRITE_LEN("Created RemoveInsertCard Thread\n");
+
+    int res = ksceKernelStartThread(removeInsertCardThreadId, 0, 0);
+  }
+
   return 0;
 }
 
 int deinitialize_threading()
 {
+  if(removeInsertCardThreadId >= 0)
+  {
+    int waitRet = 0;
+    ksceKernelWaitThreadEnd(removeInsertCardThreadId, &waitRet, 0);
+    
+    int delret = ksceKernelDeleteThread(removeInsertCardThreadId);
+  }
+
   #ifdef ENABLE_DUMP_THREAD
   
   if(dumpThreadId >= 0)
@@ -1037,15 +1092,6 @@ int initialize_functions()
   return 0;
 }
 
-int test_insert_remove()
-{
-  remove_game_card();
-  ksceKernelDelayThread(1000 * 500);
-  insert_game_card();
-
-  return 0;
-}
-
 int module_start(SceSize argc, const void *args) 
 {
   FILE_GLOBAL_WRITE_LEN("Startup iso driver\n");
@@ -1074,8 +1120,6 @@ int module_start(SceSize argc, const void *args)
   }
 
   initialize_all_hooks();
-
-  test_insert_remove();
 
   return SCE_KERNEL_START_SUCCESS;
 }
