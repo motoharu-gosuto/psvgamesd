@@ -84,6 +84,9 @@ SceUID gc_cmd56_handshake_hook_id = -1;
 tai_hook_ref_t mmc_read_hook_ref;
 SceUID mmc_read_hook_id = -1;
 
+tai_hook_ref_t get_insert_state_hook_ref;
+SceUID get_insert_state_hook_id = -1;
+
 //-------------
 
 void CMD_BIN_LOG(char* data, int size)
@@ -112,6 +115,8 @@ int print_bytes(const char* data, int len)
 
 //-------------
 
+int g_gc_inserted = 0;
+
 interrupt_argument* get_int_arg(int index)
 {
   tai_module_info_t sdstor_info;
@@ -137,11 +142,14 @@ interrupt_argument* get_int_arg(int index)
   }
 }
 
+//calls original insert interrupt handler
 int insert_game_card()
 {
   if(sceSdifInsertHandler > 0)
   {
     FILE_GLOBAL_WRITE_LEN("Signal insert\n");
+
+    g_gc_inserted = 1;
     return sceSdifInsertHandler(0, get_int_arg(SCE_SDSTOR_SDIF1_INDEX));
   }
   else
@@ -151,11 +159,14 @@ int insert_game_card()
   }
 }
 
+//calls original remove interrupt handler
 int remove_game_card()
 {
   if(sceSdifRemoveHandler > 0)
   {
     FILE_GLOBAL_WRITE_LEN("Signal remove\n");
+
+    g_gc_inserted = 0;
     return sceSdifRemoveHandler(0, get_int_arg(SCE_SDSTOR_SDIF1_INDEX));
   }
   else
@@ -165,6 +176,7 @@ int remove_game_card()
   }
 }
 
+//does the same functionality as insert interrupt handler and emulates the interrupt
 int insert_game_card_emu()
 {
   interrupt_argument* ia = get_int_arg(SCE_SDSTOR_SDIF1_INDEX);
@@ -175,9 +187,12 @@ int insert_game_card_emu()
   }
 
   FILE_GLOBAL_WRITE_LEN("Signal insert\n");
-  return ksceKernelSetEventFlag(ia->SceSdstorRequest_evid, 0x10);
+
+  g_gc_inserted = 1;
+  return ksceKernelSetEventFlag(ia->SceSdstorRequest_evid, CARD_INSERT_SDSTOR_REQUEST_EVENT_FLAG);
 }
 
+//does the same functionality as remove interrupt handler and emulates the interrupt
 int remove_game_card_emu()
 {
   interrupt_argument* ia = get_int_arg(SCE_SDSTOR_SDIF1_INDEX);
@@ -188,18 +203,43 @@ int remove_game_card_emu()
   }
 
   FILE_GLOBAL_WRITE_LEN("Signal remove\n");
-  return ksceKernelSetEventFlag(ia->SceSdstorRequest_evid, 0x1);
+
+  g_gc_inserted = 0;
+  return ksceKernelSetEventFlag(ia->SceSdstorRequest_evid, CARD_REMOVE_SDSTOR_REQUEST_EVENT_FLAG);
+}
+
+//this function emulates physical insertion signal
+//since card is not connected - reading insert state from DMA mapped region will always return 0
+//that is why insertion is emulated with g_gc_inserted variable
+int get_insert_state_hook(sd_context_global* ctx)
+{
+  if(ksceSdifGetSdContextGlobal(SCE_SDIF_DEV_GAME_CARD) == ctx)
+  {
+    //you shoud NOT use any file i/o for logging inside this handler
+    //using file i/o will cause deadlock
+    return g_gc_inserted;
+  }
+  else
+  {
+    return TAI_CONTINUE(int, get_insert_state_hook_ref, ctx);
+  }
 }
 
 int remove_insert_card_thread(SceSize args, void *argp)
 {
   FILE_GLOBAL_WRITE_LEN("Started RemoveInsertCard Thread\n");
 
-  ksceKernelDelayThread(1000000 * 60);
-  remove_game_card();
-
-  //ksceKernelDelayThread(1000 * 500);
+  //ksceKernelDelayThread(1000000 * 15);
   //insert_game_card();
+
+  //ksceKernelDelayThread(1000000 * 10);
+  //remove_game_card();
+
+  ksceKernelDelayThread(1000000 * 15);
+  insert_game_card_emu();
+
+  ksceKernelDelayThread(1000000 * 10);
+  remove_game_card_emu();
 
   return 0;
 }
@@ -912,6 +952,8 @@ int initialize_all_hooks()
       send_command_hook_id = taiHookFunctionOffsetForKernel(KERNEL_PID, &send_command_hook_ref, sdif_info.modid, 0, 0x17E8, 1, send_command_emu_hook);
       #endif
     #endif
+
+    get_insert_state_hook_id = taiHookFunctionOffsetForKernel(KERNEL_PID, &get_insert_state_hook_ref, sdif_info.modid, 0, 0xC84, 1, get_insert_state_hook);
   }
 
   return 0;
@@ -942,6 +984,9 @@ int deinitialize_all_hooks()
 
   if(mmc_read_hook_id >= 0)
     taiHookReleaseForKernel(mmc_read_hook_id, mmc_read_hook_ref);
+
+  if(get_insert_state_hook_id >= 0)
+    taiHookReleaseForKernel(get_insert_state_hook_id, get_insert_state_hook_ref);
     
   return 0;
 }
