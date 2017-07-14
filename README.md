@@ -115,6 +115,8 @@ Current issues in emulation include:
 
 - Need to go through Sdif driver again and check if there are any other accesses to physical device through DMA mapped memory.
   Previous accesses include: executing command, get card insertion state. Every such access should be emulated.
+- Ideally it could be great to reverse all the code that goes under command execution and reimplement it. 
+  Currently I am using minimal reimplementation and not sure how stable it is.
 - Remove requirement for cmd56 handshake data to be present. 
   This is related to NpDrm and requires significant amount of patches in Iofilemgr and PfsMgr.
   I am already working on it.
