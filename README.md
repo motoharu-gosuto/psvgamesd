@@ -23,6 +23,7 @@ This can be done in different ways:
    There are two modes that can be used there.
    - Use PS Vita as black box (cmd56 handshake is done by PS Vita)
    - Use PS Vita F00D as black box (cmd56 handshake is done by board)
+   
    For second approach you will need kirk plugins that are located here
    https://github.com/motoharu-gosuto/psvkirk
    
@@ -39,6 +40,8 @@ This can be done in different ways:
    Only little changes are required to make it dump SCEI MBR.
    You can then combine dumps with your favorite hex editor.
    
+3. Use code example in psvgamesd and dump sdstor0:gcd-lp-ign-entire.
+   
 # Creating physical copy with SD card
    
 After binary dump is obtained you can optionally create SD card physical copy by using these:
@@ -52,7 +55,7 @@ After binary dump is obtained you can optionally create SD card physical copy by
 I have confirmed that these types of card work:
 
 - SDHC
-- micro SDHC (requires low speed patch)
+- micro SDHC (does not look that it requires slow speed patch - confirmed by xyz)
 
 # Putting it all together
 
@@ -100,16 +103,18 @@ There could be another way to do things - just hook initialization subroutine al
 
 This way it is not required to emulate each and every MMC command. I am not sure about side effects in this scenario though.
 
+Currently I am also able to emulate insert / remove card operations.
+
 Current issues in emulation include:
 
 - CMD17 is glitchy and goes to infinite loop after second command. This can be fixed by hooking read operation subroutine all together. However I do not like this approach.
 
 - CMD18 / CMD23 is not tested.
 
-- Need to add software emulation of card insert/remove. Currently I am connecting INS and GND pins with DIP switch.
-
 # Next milestones
 
+- Need to go through Sdif driver again and check if there are any other accesses to physical device through DMA mapped memory.
+  Previous accesses include: executing command, get card insertion state. Every such access should be emulated.
 - Remove requirement for cmd56 handshake data to be present. 
   This is related to NpDrm and requires significant amount of patches in Iofilemgr and PfsMgr.
   I am already working on it.
