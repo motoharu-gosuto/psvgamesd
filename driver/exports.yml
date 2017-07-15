@@ -6,3 +6,16 @@ psvgamesd:
   main:
     start: module_start
     stop: module_stop
+  modules:
+    psvgamesd:
+      syscall: true
+      functions:
+        - set_iso_path
+        - insert_card
+        - remove_card
+        - initialize_physical_mmc
+        - deinitialize_physical_mmc
+        - initialize_virtual_mmc
+        - deinitialize_virtual_mmc
+        - initialize_physical_sd
+        - deinitialize_physical_sd

@@ -59,3 +59,7 @@ install(DIRECTORY ${CMAKE_BINARY_DIR}/psvgamesd-stubs/
   DESTINATION lib
   FILES_MATCHING PATTERN "*.a"
 )
+
+install(FILES psvgamesd_api.h
+  DESTINATION include
+)

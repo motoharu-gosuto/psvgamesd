@@ -23,6 +23,8 @@
 #include "mmc_emu.h"
 #include "global_log.h"
 
+#include "psvgamesd_api.h"
+
 //-------------
 
 #define SceSdifForDriver_NID 0x96D306FA
@@ -235,11 +237,11 @@ int remove_insert_card_thread(SceSize args, void *argp)
   //ksceKernelDelayThread(1000000 * 10);
   //remove_game_card();
 
-  ksceKernelDelayThread(1000000 * 15);
-  insert_game_card_emu();
+  //ksceKernelDelayThread(1000000 * 15);
+  //insert_game_card_emu();
 
-  ksceKernelDelayThread(1000000 * 10);
-  remove_game_card_emu();
+  //ksceKernelDelayThread(1000000 * 10);
+  //remove_game_card_emu();
 
   return 0;
 }
@@ -1179,4 +1181,65 @@ int module_stop(SceSize argc, const void *args)
   deinitialize_threading();
   
   return SCE_KERNEL_STOP_SUCCESS;
+}
+
+//-----------
+
+int set_iso_path(char* path)
+{
+  char path_kernel[256];
+  memset(path_kernel, 0, 256);
+  ksceKernelStrncpyUserToKernel(path_kernel, (uintptr_t)path, 256);
+
+  snprintf(sprintfBuffer, 256, "set_iso_path %s\n", path_kernel);
+  FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
+  return 0;
+}
+
+int insert_card()
+{
+  FILE_GLOBAL_WRITE_LEN("insert_card\n");
+  return 0;
+}
+
+int remove_card()
+{
+  FILE_GLOBAL_WRITE_LEN("remove_card\n");
+  return 0;
+}
+
+int initialize_physical_mmc()
+{
+  FILE_GLOBAL_WRITE_LEN("initialize_physical_mmc\n");
+  return 0;
+}
+
+int deinitialize_physical_mmc()
+{
+  FILE_GLOBAL_WRITE_LEN("deinitialize_physical_mmc\n");
+  return 0;
+}
+
+int initialize_virtual_mmc()
+{
+  FILE_GLOBAL_WRITE_LEN("initialize_virtual_mmc\n");
+  return 0;
+}
+
+int deinitialize_virtual_mmc()
+{
+  FILE_GLOBAL_WRITE_LEN("deinitialize_virtual_mmc\n");
+  return 0;
+}
+
+int initialize_physical_sd()
+{
+  FILE_GLOBAL_WRITE_LEN("initialize_physical_sd\n");
+  return 0;
+}
+
+int deinitialize_physical_sd()
+{
+  FILE_GLOBAL_WRITE_LEN("deinitialize_physical_sd\n");
+  return 0;
 }
