@@ -92,6 +92,8 @@ Current issues in emulation include:
 
 - CMD18 / CMD23 is not tested.
 
+- CID, CSD, EXT_CSD registers are hardcoded copy of original registers. Need to figure out some generic values for them.
+
 # User App
 
 I have added minimalistic user app which is still in developement. It will allow to manipulate the driver.
