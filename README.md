@@ -5,7 +5,7 @@ Set of tools to run PS Vita game dumps from SD card or from binary image
 
 Just a small note before you will try to use these tools.
 Currently game dumps can be run both from SD card and from binary dump.
-Binary dumps are now run by emulating MMC card hardware (kinda iso driver). Some tweaks are required as well.
+Binary dumps are now run by emulating MMC card hardware (kinda iso driver).
 SD card is no longer required to run binary dump.
 There should be no freezes glitches and graphical artifacts unless your dump is damaged.
 
@@ -40,7 +40,8 @@ This can be done in different ways:
    Only little changes are required to make it dump SCEI MBR.
    You can then combine dumps with your favorite hex editor.
    
-3. Use code example in psvgamesd and dump sdstor0:gcd-lp-ign-entire.
+3. Use dump function in psvgamesd when in "physical mmc" mode and dump sdstor0:gcd-lp-ign-entire.
+   This will be implemented soon (need to add ui, dump code is ready).
    
 # Creating physical copy with SD card
    
@@ -57,43 +58,23 @@ I have confirmed that these types of card work:
 - SDHC
 - micro SDHC (does not look that it requires slow speed patch - confirmed by xyz)
 
+# CMD56 handshake
+
+Data from the handshake is required to pass signature checks and obtain klicensee. It will be integrated into dump binary in the future. However it is not at the moment. To obtain the data you need to run the game in "physical mmc" mode. Signature and keys will be dumped into iso directory. You can then switch to "virtual mmc" mode to run iso.
+
 # Putting it all together
 
 After you have obtained binary file or SD card copy you can use psvgamesd kernel plugin.
 
 It has several options for compilation:
 
-#define ENABLE_SD_PATCHES - this define enables all SD patches. When disabled - MMC mode is used.
-In MMC mode you can run original game cards. You will need this mode because prior to running
-game from SD card you will need to obtain cmd56 handshake key. I intentionally did not add cmd56_key.c file.
-
 #define ENABLE_SD_LOW_SPEED_PATCH - this define enables low speed mode for SD card.
 I did not test this a lot. I know that SD initialization should work. However I do not know how game will behave.
-This define should be used for SD, SDHC cards. SDXC cards should be ok and do not require this to be enabled.
+This define can be used for SD, SDHC cards. SDXC cards should be ok and do not require this to be enabled.
+However xyz reported that SDHC cards work ok and do not require patch.
 
-It has several options for reading:
-
-By default all SD read/write operations will be redirected to file with binary dump.
-
-#define ENABLE_SEPARATE_READ_THREAD - this define enables separate thread that is used to redirect SD read/write operations
-to file with binary dump.
-
-#define ENABLE_READ_THROUGH - this define enables redirection to SD card
-
-
-#define ENABLE_MMC_READ - enable mmc read hooks
-
-#define ENABLE_MMC_SEPARATE_READ_THREAD - redirect MMC read operations to separate thread
-
-#define ENABLE_MMC_READ_THROUGH - redirect MMC read operations to MMC card
-
-#define OVERRIDE_COMMANDS_DEBUG - hook MMC command execution and produce debug output
-
-#define OVERRIDE_COMMANDS_EMU - redirect MMC commands to MMC card emulator (kinda iso driver)
-
-#define OVERRIDE_CMD56_HANDSHAKE - override cmd56 handshare with custom handler if you know the keys (keys are dumped by default)
-
-#define ENABLE_DUMP_THREAD - starts separate thread that dumps -entire mmc device
+#define ENABLE_INSERT_EMU - this switches between original card insert/remove code and reimplementation. 
+both versions should be fine
 
 # Emulating MMC card
 
@@ -111,8 +92,24 @@ Current issues in emulation include:
 
 - CMD18 / CMD23 is not tested.
 
+# User App
+
+I have added minimalistic user app which is still in developement. It will allow to manipulate the driver.
+
+It will include mode selection:
+
+- physical mmc (run original game)
+- virtual mmc (emulate mmc card and run iso)
+- physical sd (run physical copy on sd card)
+- virtual sd (emulate sd card and run iso)
+
+It will also allow to dump iso in "physical mmc" mode.
+
 # Next milestones
 
+- Refactor dump format
+- Compress dump
+- Check digital games
 - Need to go through Sdif driver again and check if there are any other accesses to physical device through DMA mapped memory.
   Previous accesses include: executing command, get card insertion state. Every such access should be emulated.
 - Ideally it could be great to reverse all the code that goes under command execution and reimplement it. 
