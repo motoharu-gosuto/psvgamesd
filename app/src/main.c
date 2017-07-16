@@ -16,6 +16,8 @@
 
 //---
 
+#define ISO_ROOT_DIRECTORY "ux0:iso"
+
 //original mode
 #define DRIVER_MODE_PHYSICAL_MMC 0
 //emulate mmc
@@ -809,7 +811,7 @@ int main(int argc, char *argv[])
 
   set_app_running(1);
   set_redraw_request(1);
-  set_dir("ux0:iso");
+  set_dir(ISO_ROOT_DIRECTORY);
   set_driver_mode(DRIVER_MODE_PHYSICAL_MMC);
   set_insertion_state(INSERTION_STATE_REMOVED);
 
