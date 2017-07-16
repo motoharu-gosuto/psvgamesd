@@ -4,9 +4,12 @@
 #include <psp2kern/kernel/threadmgr.h>
 
 #include <stdio.h>
+#include <string.h>
+#include <stdint.h>
 
 #include "global_log.h"
-#include "psvgamesd.h"
+#include "reader.h"
+#include "functions.h"
 
 char sprintfBuffer[256];
 

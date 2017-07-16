@@ -1,6 +1,6 @@
 #pragma once
 
-int set_iso_path(char* path);
+int set_iso_path(const char* path);
 
 int insert_card();
 

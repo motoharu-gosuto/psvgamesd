@@ -271,7 +271,7 @@ typedef struct interrupt_info
 #define SUSPEND_SDSTOR_REQUEST_EVENT_FLAG 0x100
 #define RESUME_SDSTOR_REQUEST_EVENT_FLAG 0x1000
 
-//TODO: API does not have best naming. please check the wiki also
+//TODO: API does not have best naming here. please check the wiki also
 
 #define SCE_SDIF_DEV_EMMC 0
 #define SCE_SDIF_DEV_GAME_CARD 1

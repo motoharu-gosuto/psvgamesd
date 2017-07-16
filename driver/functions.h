@@ -1,19 +1,6 @@
-#pragma once 
+#pragma once
 
 #include <psp2kern/types.h>
-
-#include "sector_api.h"
-
-extern SceUID req_lock;
-extern SceUID resp_lock;
-
-extern SceUID req_cond;
-extern SceUID resp_cond;
-
-extern void* g_ctx_part;
-extern int g_sector;
-extern char* g_buffer;
-extern int g_nSectors;
 
 typedef struct SceKernelCondOptParam 
 {
@@ -32,5 +19,4 @@ extern sceKernelWaitCondForDriver_t* sceKernelWaitCondForDriver;
 extern sceKernelSignalCondForDriver_t* sceKernelSignalCondForDriver;
 extern sceKernelSha1DigestForDriver_t* sceKernelSha1DigestForDriver;
 
-extern insert_handler* sceSdifInsertHandler;
-extern remove_handler* sceSdifRemoveHandler;
+int initialize_functions();

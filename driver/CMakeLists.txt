@@ -27,10 +27,20 @@ add_definitions(-DNO_DYNAMIC_LINKER_STUFF)
 add_definitions(-DNO_PTHREADS)
 
 add_executable(psvgamesd
-  psvgamesd.c
   cmd56_key.c
-  mmc_emu.c
+  dumper.c
+  functions.c
   global_log.c
+  hook_ids.c
+  mmc_emu.c
+  physical_mmc.c
+  physical_sd.c
+  psvgamesd.c
+  psvgamesd_api.c
+  reader.c
+  utils.c
+  virtual_mmc.c
+  virtual_sd.c
 )
 
 target_link_libraries(psvgamesd

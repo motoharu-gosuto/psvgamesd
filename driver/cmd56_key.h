@@ -1,3 +1,5 @@
 #pragma once
 
-extern char data_5018[0x34]; 
+int set_5018_data();
+
+int get_5018_data();
