@@ -24,10 +24,13 @@
 #define DRIVER_MODE_VIRTUAL_MMC 1
 //physical sd card with patches
 #define DRIVER_MODE_PHYSICAL_SD 2
+//emulate sd
+#define DRIVER_MODE_VIRTUAL_SD 3
 
 #define DRIVER_MODE_NAME_PHYSICAL_MMC "physical mmc"
 #define DRIVER_MODE_NAME_VIRTUAL_MMC "virtual mmc"
 #define DRIVER_MODE_NAME_PHYSICAL_SD "physical sd"
+#define DRIVER_MODE_NAME_VIRTUAL_SD "virtual sd"
 
 //---
 
@@ -130,6 +133,9 @@ int driver_mode_to_name(uint32_t mode, char* dest)
       break;
     case DRIVER_MODE_PHYSICAL_SD:
       strncpy(dest, DRIVER_MODE_NAME_PHYSICAL_SD, 256);
+      break;
+    case DRIVER_MODE_VIRTUAL_SD:
+      strncpy(dest, DRIVER_MODE_NAME_VIRTUAL_SD, 256);
       break;
     default:
       strncpy(dest, "unknown", 256);
@@ -315,20 +321,27 @@ int SCE_CTRL_START_callback()
 {
   //psvDebugScreenPrintf("psvgamesd: SCE_CTRL_START\n");
 
-  if(get_driver_mode() == DRIVER_MODE_VIRTUAL_MMC)
+  //insertion only applies to virtual modes
+  uint32_t d_mode = get_driver_mode();
+  if(d_mode == DRIVER_MODE_VIRTUAL_MMC || d_mode == DRIVER_MODE_VIRTUAL_SD)
   {
+    //insertion only applies if iso is selected
     char sel_iso[256];
     get_selected_iso(sel_iso);
     if(strnlen(sel_iso, 256) > 0)
     {
+      //get prev state and set current state
       uint32_t prev_state = get_insertion_state();
 
       set_insertion_state(INSERTION_STATE_INSERTED);
-      set_redraw_request(1);
 
+      //insert card only if state has changed
       if(prev_state != get_insertion_state())
       {
         insert_card();
+
+        //redraw screen
+        set_redraw_request(1);
       }
     }
   }
@@ -341,20 +354,27 @@ int SCE_CTRL_SELECT_callback()
 {
   //psvDebugScreenPrintf("psvgamesd: SCE_CTRL_SELECT\n");
 
-  if(get_driver_mode() == DRIVER_MODE_VIRTUAL_MMC)
+  //insertion only applies to virtual modes
+  uint32_t d_mode = get_driver_mode();
+  if(d_mode == DRIVER_MODE_VIRTUAL_MMC || d_mode == DRIVER_MODE_VIRTUAL_SD)
   {
+    //insertion only applies if iso is selected
     char sel_iso[256];
     get_selected_iso(sel_iso);
     if(strnlen(sel_iso, 256) > 0)
     {
+      //get prev state and set current state
       uint32_t prev_state = get_insertion_state();
 
       set_insertion_state(INSERTION_STATE_REMOVED);
-      set_redraw_request(1);
 
+      //insert card only if state has changed
       if(prev_state != get_insertion_state())
       {
         remove_card();
+
+        //redraw screen
+        set_redraw_request(1);
       }
     }
   }
@@ -394,16 +414,20 @@ int SCE_CTRL_DOWN_callback()
 
 int select_driver_mode(uint32_t prev_mode, uint32_t new_mode)
 {
-  if(new_mode != DRIVER_MODE_VIRTUAL_MMC)
+  //insertion only applies to virtual modes - remove card if it was inserted since we are changing mode
+  if((prev_mode == DRIVER_MODE_VIRTUAL_MMC) || (prev_mode == DRIVER_MODE_VIRTUAL_SD))
   {
+    //remove card
     if(get_insertion_state() == INSERTION_STATE_INSERTED)
     {
       remove_card();
     }
 
+    //deselect iso
     set_iso_path("");
   }
 
+  //execute deinit based on previous mode
   switch(prev_mode)
   {
     case DRIVER_MODE_PHYSICAL_MMC:
@@ -415,10 +439,14 @@ int select_driver_mode(uint32_t prev_mode, uint32_t new_mode)
     case DRIVER_MODE_PHYSICAL_SD:
     deinitialize_physical_sd();
     break;
+    case DRIVER_MODE_VIRTUAL_SD:
+    deinitialize_virtual_sd();
+    break;
     default:
     break;
   }
 
+  //execute init based on current mode
   switch(new_mode)
   {
     case DRIVER_MODE_PHYSICAL_MMC:
@@ -429,6 +457,9 @@ int select_driver_mode(uint32_t prev_mode, uint32_t new_mode)
     break;
     case DRIVER_MODE_PHYSICAL_SD:
     initialize_physical_sd();
+    break;
+    case DRIVER_MODE_VIRTUAL_SD:
+    initialize_virtual_sd();
     break;
     default:
     break;
@@ -446,12 +477,14 @@ int SCE_CTRL_RIGHT_callback()
 
   sceKernelLockMutex(g_driver_mode_mutex_id, 1, 0);
 
-  if(g_driver_mode == DRIVER_MODE_PHYSICAL_SD)
+  //check overflow condition
+  if(g_driver_mode == DRIVER_MODE_VIRTUAL_SD)
     g_driver_mode = DRIVER_MODE_PHYSICAL_MMC;
   else
     g_driver_mode++;
 
-  if(g_driver_mode != DRIVER_MODE_VIRTUAL_MMC)
+  //remove card and deselect iso if previous mode was virtual and card was inserted
+  if((prev_driver_mode == DRIVER_MODE_VIRTUAL_MMC) || (prev_driver_mode == DRIVER_MODE_VIRTUAL_SD))
   {
     if(get_insertion_state() == INSERTION_STATE_INSERTED)
     {
@@ -463,9 +496,9 @@ int SCE_CTRL_RIGHT_callback()
 
   sceKernelUnlockMutex(g_driver_mode_mutex_id, 1);
 
-  set_redraw_request(1);
-
   select_driver_mode(prev_driver_mode, get_driver_mode());
+
+  set_redraw_request(1);
 
   return 0;
 }
@@ -479,12 +512,14 @@ int SCE_CTRL_LEFT_callback()
 
   sceKernelLockMutex(g_driver_mode_mutex_id, 1, 0);
 
+  //check underflow condition
   if(g_driver_mode == DRIVER_MODE_PHYSICAL_MMC)
-    g_driver_mode = DRIVER_MODE_PHYSICAL_SD;
+    g_driver_mode = DRIVER_MODE_VIRTUAL_SD;
   else
     g_driver_mode--;
 
-  if(g_driver_mode != DRIVER_MODE_VIRTUAL_MMC)
+  //remove card and deselect iso if previous mode was virtual and card was inserted
+  if((prev_driver_mode == DRIVER_MODE_VIRTUAL_MMC) || (prev_driver_mode == DRIVER_MODE_VIRTUAL_SD))
   {
     if(get_insertion_state() == INSERTION_STATE_INSERTED)
     {
@@ -496,9 +531,9 @@ int SCE_CTRL_LEFT_callback()
 
   sceKernelUnlockMutex(g_driver_mode_mutex_id, 1);
 
-  set_redraw_request(1);
-
   select_driver_mode(prev_driver_mode, get_driver_mode());
+
+  set_redraw_request(1);
 
   return 0;
 }
@@ -530,25 +565,33 @@ int SCE_CTRL_CIRCLE_callback()
 {
   //psvDebugScreenPrintf("psvgamesd: SCE_CTRL_CIRCLE\n");
 
-  if(get_driver_mode() == DRIVER_MODE_VIRTUAL_MMC)
+  //iso execution only applies to virtual mode
+  uint32_t d_mode = get_driver_mode();
+  if((d_mode == DRIVER_MODE_VIRTUAL_MMC) || (d_mode == DRIVER_MODE_VIRTUAL_SD))
   {
-    if(get_insertion_state() == INSERTION_STATE_INSERTED)
-    {
-      set_insertion_state(INSERTION_STATE_REMOVED);
-    }
-
+    //get currently selected iso
     char filepath[256];
     int found = get_dir_filename_at_pos(g_current_directory, get_file_position(), filepath);
     if(found >= 0)
     {
+      //get previous iso and set new iso
       char prev_iso[256];
       get_selected_iso(prev_iso);
 
       set_selected_iso(filepath);
-      set_redraw_request(1);
-
+      
+      //check if selection has changed
       if(strncmp(prev_iso, filepath, 256) != 0)
       {
+        //remove previous card if it was inserted
+        if(get_insertion_state() == INSERTION_STATE_INSERTED)
+        {
+          set_insertion_state(INSERTION_STATE_REMOVED);
+
+          remove_card();
+        }
+
+        //construct path to new iso
         char full_path[256];
         memset(full_path, 0, 256);
         strncpy(full_path, g_current_directory, 256);
@@ -556,6 +599,9 @@ int SCE_CTRL_CIRCLE_callback()
         strcat(full_path, filepath);
 
         set_iso_path(full_path);
+
+        //redraw screen
+        set_redraw_request(1);
       }
     }
   }
@@ -669,7 +715,8 @@ int draw_dir(char* path)
   driver_mode_to_name(get_driver_mode(), sel_driver_mode);
   psvDebugScreenPrintf("\e[9%im driver mode: %s\n", 7, sel_driver_mode);
 
-  if(get_driver_mode() == DRIVER_MODE_VIRTUAL_MMC)
+  uint32_t d_mode = get_driver_mode();
+  if(d_mode == DRIVER_MODE_VIRTUAL_MMC || d_mode == DRIVER_MODE_VIRTUAL_SD)
   {
     char sel_iso[256];
     get_selected_iso(sel_iso);
