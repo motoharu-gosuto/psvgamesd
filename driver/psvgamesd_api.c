@@ -14,6 +14,7 @@
 #include "physical_mmc.h"
 #include "virtual_mmc.h" 
 #include "virtual_sd.h"
+#include "ins_rem_card.h"
 
 int set_iso_path(const char* path)
 {
@@ -98,5 +99,21 @@ int deinitialize_physical_sd()
   deinitialize_hooks_physical_sd();
 
   //FILE_GLOBAL_WRITE_LEN("deinitialize_physical_sd\n");
+  return 0;
+}
+
+int initialize_virtual_sd()
+{
+  initialize_hooks_virtual_sd();
+
+  //FILE_GLOBAL_WRITE_LEN("initialize_virtual_sd\n");
+  return 0;
+}
+
+int deinitialize_virtual_sd()
+{
+  deinitialize_hooks_virtual_sd();
+
+  //FILE_GLOBAL_WRITE_LEN("deinitialize_virtual_sd\n");
   return 0;
 }

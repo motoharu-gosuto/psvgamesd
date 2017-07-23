@@ -19,3 +19,5 @@ psvgamesd:
         - deinitialize_virtual_mmc
         - initialize_physical_sd
         - deinitialize_physical_sd
+        - initialize_virtual_sd
+        - deinitialize_virtual_sd

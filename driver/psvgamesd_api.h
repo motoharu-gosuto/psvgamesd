@@ -17,3 +17,7 @@ int deinitialize_virtual_mmc();
 int initialize_physical_sd();
 
 int deinitialize_physical_sd();
+
+int initialize_virtual_sd();
+
+int deinitialize_virtual_sd();

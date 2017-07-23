@@ -41,6 +41,8 @@ add_executable(psvgamesd
   utils.c
   virtual_mmc.c
   virtual_sd.c
+  sd_emu.c
+  ins_rem_card.c
 )
 
 target_link_libraries(psvgamesd

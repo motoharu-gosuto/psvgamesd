@@ -29,22 +29,25 @@ MBR mbr;
 
 int get_mbr(const char* path)
 {
-  SceUID iso_fd = ksceIoOpen(path, SCE_O_RDONLY, 0777);
-
-  if(iso_fd >= 0)
+  if(strnlen(path, 256) > 0)
   {
-    FILE_GLOBAL_WRITE_LEN("Opened iso\n");
+    SceUID iso_fd = ksceIoOpen(path, SCE_O_RDONLY, 0777);
 
-    ksceIoRead(iso_fd, &mbr, sizeof(MBR));
+    if(iso_fd >= 0)
+    {
+      FILE_GLOBAL_WRITE_LEN("Opened iso\n");
 
-    snprintf(sprintfBuffer, 256, "max sector: %x\n", mbr.sizeInBlocks);
-    FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
+      ksceIoRead(iso_fd, &mbr, sizeof(MBR));
 
-    ksceIoClose(iso_fd);
-  }
-  else
-  {
-    FILE_GLOBAL_WRITE_LEN("Failed to open iso\n");
+      snprintf(sprintfBuffer, 256, "max sector: %x\n", mbr.sizeInBlocks);
+      FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
+
+      ksceIoClose(iso_fd);
+    }
+    else
+    {
+      FILE_GLOBAL_WRITE_LEN("Failed to open iso\n");
+    }
   }
 
   return 0;

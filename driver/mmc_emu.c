@@ -11,8 +11,6 @@
 #include "reader.h"
 #include "functions.h"
 
-char sprintfBuffer[256];
-
 #define IDLE_MMC_STATE 0
 #define READY_MMC_STATE 1
 #define IDENTIFICATION_MMC_STATE 2
@@ -21,8 +19,8 @@ char sprintfBuffer[256];
 #define DATA_MMC_STATE 5
 #define RECEIVE_MMC_STATE 6
 #define PROGRAMING_MMC_STATE 7
-#define DISCONNECT_STATE 8
-#define BUS_TEST_STATE 9
+#define DISCONNECT_MMC_STATE 8
+#define BUS_TEST_MMC_STATE 9
 #define SLEEP_MMC_STATE 10
 #define INVALID_MMC_STATE -1
 
@@ -30,10 +28,13 @@ char sprintfBuffer[256];
 
 #define MMC_COMMAND_COMPLETE_FLAG 0x80000000
 
-const char CMD2_resp[0x10] = {0x00, 0xCD, 0x00, 0x00, 0x00, 0x00, 0x10, 0x41, 0x41, 0x46, 0x54, 0x4C, 0x50, 0x11, 0x00, 0x11};
-const char CMD9_resp[0x10] = {0x00, 0x40, 0x40, 0x82, 0xFF, 0xFF, 0xDB, 0xF6, 0xFF, 0x03, 0x59, 0x1F, 0x32, 0x01, 0x7F, 0x90};
+#define MMC_INIT_COMPLETE 0x80000000
+#define MMC_CCS_SDHC_SDXC 0x40000000
 
-const char CMD8_data[0x200] = 
+const char MMC_CMD2_resp[0x10] = {0x00, 0xCD, 0x00, 0x00, 0x00, 0x00, 0x10, 0x41, 0x41, 0x46, 0x54, 0x4C, 0x50, 0x11, 0x00, 0x11};
+const char MMC_CMD9_resp[0x10] = {0x00, 0x40, 0x40, 0x82, 0xFF, 0xFF, 0xDB, 0xF6, 0xFF, 0x03, 0x59, 0x1F, 0x32, 0x01, 0x7F, 0x90};
+
+const char MMC_CMD8_data[0x200] = 
 {
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
@@ -69,8 +70,8 @@ const char CMD8_data[0x200] =
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x12, 0x02, 0x00, 0x13, 0x06, 0x17, 0x00
 };
 
-int g_card_state = INVALID_MMC_STATE;
-int g_ready_for_data = 0;
+int g_mmc_card_state = INVALID_MMC_STATE;
+int g_mmc_ready_for_data = 0;
 
 int emulate_mmc_command(sd_context_global* ctx, cmd_input* cmd_data1, cmd_input* cmd_data2, int nIter, int num)
 {
@@ -83,43 +84,46 @@ int emulate_mmc_command(sd_context_global* ctx, cmd_input* cmd_data1, cmd_input*
             cmd_data1->unk_64 = 3;
             cmd_data1->wide_time1 = ksceKernelGetSystemTimeWide();
             
-            g_card_state = IDLE_MMC_STATE;
-            g_ready_for_data = 0;
+            g_mmc_card_state = IDLE_MMC_STATE;
+            g_mmc_ready_for_data = 0;
             return cmd_data1->error_code;
         }
+        //ignore intermediate CMD1 response and report that card is ready immediately
         case 1:
         {
             cmd_data1->state_flags = cmd_data1->state_flags | MMC_COMMAND_COMPLETE_FLAG;
-            cmd_data1->response.dw.dw0 = 0xC0FF8080;
+
+            cmd_data1->response.dw.dw0 = 0x00FF8080 | MMC_INIT_COMPLETE | MMC_CCS_SDHC_SDXC;
+
             cmd_data1->error_code = 0;
             cmd_data1->unk_64 = 3;
             cmd_data1->wide_time1 = ksceKernelGetSystemTimeWide();
 
-            g_card_state = READY_MMC_STATE;
+            g_mmc_card_state = READY_MMC_STATE;
             return cmd_data1->error_code;
         }
         case 2:
         {
             cmd_data1->state_flags = cmd_data1->state_flags | MMC_COMMAND_COMPLETE_FLAG;
-            memcpy(cmd_data1->response.db.data, CMD2_resp, 0x10);
+            memcpy(cmd_data1->response.db.data, MMC_CMD2_resp, 0x10);
             cmd_data1->error_code = 0;
             cmd_data1->unk_64 = 3;
             cmd_data1->wide_time1 = ksceKernelGetSystemTimeWide();
 
-            g_card_state = IDENTIFICATION_MMC_STATE;
+            g_mmc_card_state = IDENTIFICATION_MMC_STATE;
             return cmd_data1->error_code;
         }
         case 3:
         {
-            g_ready_for_data = 1;
+            g_mmc_ready_for_data = 1;
 
             cmd_data1->state_flags = cmd_data1->state_flags | MMC_COMMAND_COMPLETE_FLAG;
-            cmd_data1->response.dw.dw0 = (g_card_state << 9) | (g_ready_for_data << 8);
+            cmd_data1->response.dw.dw0 = (g_mmc_card_state << 9) | (g_mmc_ready_for_data << 8);
             cmd_data1->error_code = 0;
             cmd_data1->unk_64 = 3;
             cmd_data1->wide_time1 = ksceKernelGetSystemTimeWide();
 
-            g_card_state = STANDBY_MMC_STATE;
+            g_mmc_card_state = STANDBY_MMC_STATE;
             return cmd_data1->error_code;
         }
         case 5:
@@ -128,7 +132,7 @@ int emulate_mmc_command(sd_context_global* ctx, cmd_input* cmd_data1, cmd_input*
             cmd_data1->unk_64 = 3;
             cmd_data1->wide_time1 = ksceKernelGetSystemTimeWide();
 
-            g_card_state = INVALID_MMC_STATE;
+            g_mmc_card_state = INVALID_MMC_STATE;
             return cmd_data1->error_code;
         }
         case 6:
@@ -137,10 +141,10 @@ int emulate_mmc_command(sd_context_global* ctx, cmd_input* cmd_data1, cmd_input*
             {
                 case 0x03AF0100:
                 {
-                    g_ready_for_data = 0;
+                    g_mmc_ready_for_data = 0;
 
                     cmd_data1->state_flags = cmd_data1->state_flags | MMC_COMMAND_COMPLETE_FLAG;
-                    cmd_data1->response.dw.dw0 = (g_card_state << 9) | (g_ready_for_data << 8);
+                    cmd_data1->response.dw.dw0 = (g_mmc_card_state << 9) | (g_mmc_ready_for_data << 8);
                     cmd_data1->error_code = 0;
                     cmd_data1->unk_64 = 3;
                     cmd_data1->wide_time1 = ksceKernelGetSystemTimeWide();
@@ -149,15 +153,15 @@ int emulate_mmc_command(sd_context_global* ctx, cmd_input* cmd_data1, cmd_input*
 
                     cmd_data1->wide_time2 = ksceKernelGetSystemTimeWide();
 
-                    g_card_state = TRANSFER_MMC_STATE;
+                    g_mmc_card_state = TRANSFER_MMC_STATE;
                     return cmd_data1->error_code;
                 }
                 case 0x03B90100:
                 {
-                    g_ready_for_data = 0;
+                    g_mmc_ready_for_data = 0;
 
                     cmd_data1->state_flags = cmd_data1->state_flags | MMC_COMMAND_COMPLETE_FLAG;
-                    cmd_data1->response.dw.dw0 = (g_card_state << 9) | (g_ready_for_data << 8) | MMC_ILLEGAL_COMMAND_FLAG;
+                    cmd_data1->response.dw.dw0 = (g_mmc_card_state << 9) | (g_mmc_ready_for_data << 8) | MMC_ILLEGAL_COMMAND_FLAG;
                     cmd_data1->error_code = 0;
                     cmd_data1->unk_64 = 3;
                     cmd_data1->wide_time1 = ksceKernelGetSystemTimeWide();
@@ -166,15 +170,15 @@ int emulate_mmc_command(sd_context_global* ctx, cmd_input* cmd_data1, cmd_input*
 
                     cmd_data1->wide_time2 = ksceKernelGetSystemTimeWide();
 
-                    g_card_state = TRANSFER_MMC_STATE;
+                    g_mmc_card_state = TRANSFER_MMC_STATE;
                     return cmd_data1->error_code;
                 }
                 case 0x03B70100:
                 {
-                    g_ready_for_data = 0;
+                    g_mmc_ready_for_data = 0;
 
                     cmd_data1->state_flags = cmd_data1->state_flags | MMC_COMMAND_COMPLETE_FLAG;
-                    cmd_data1->response.dw.dw0 = (g_card_state << 9) | (g_ready_for_data << 8);
+                    cmd_data1->response.dw.dw0 = (g_mmc_card_state << 9) | (g_mmc_ready_for_data << 8);
                     cmd_data1->error_code = 0;
                     cmd_data1->unk_64 = 3;
                     cmd_data1->wide_time1 = ksceKernelGetSystemTimeWide();
@@ -183,7 +187,7 @@ int emulate_mmc_command(sd_context_global* ctx, cmd_input* cmd_data1, cmd_input*
 
                     cmd_data1->wide_time2 = ksceKernelGetSystemTimeWide();
 
-                    g_card_state = TRANSFER_MMC_STATE;
+                    g_mmc_card_state = TRANSFER_MMC_STATE;
                     return cmd_data1->error_code;
                 }
                 default:
@@ -196,34 +200,34 @@ int emulate_mmc_command(sd_context_global* ctx, cmd_input* cmd_data1, cmd_input*
         }
         case 7:
         {
-            g_ready_for_data = 1;
+            g_mmc_ready_for_data = 1;
 
             cmd_data1->state_flags = cmd_data1->state_flags | MMC_COMMAND_COMPLETE_FLAG;
-            cmd_data1->response.dw.dw0 = (g_card_state << 9) | (g_ready_for_data << 8);
+            cmd_data1->response.dw.dw0 = (g_mmc_card_state << 9) | (g_mmc_ready_for_data << 8);
             cmd_data1->error_code = 0;
             cmd_data1->unk_64 = 3;
             cmd_data1->wide_time1 = ksceKernelGetSystemTimeWide();
 
-            g_card_state = TRANSFER_MMC_STATE;
+            g_mmc_card_state = TRANSFER_MMC_STATE;
             return cmd_data1->error_code;
         }
         case 8:
         {
-            if(g_card_state == IDLE_MMC_STATE)
+            if(g_mmc_card_state == IDLE_MMC_STATE)
             {
                 cmd_data1->error_code = 0x80320002;
                 cmd_data1->unk_64 = 3;
                 cmd_data1->wide_time1 = ksceKernelGetSystemTimeWide();
 
-                g_card_state = INVALID_MMC_STATE;
+                g_mmc_card_state = INVALID_MMC_STATE;
                 return cmd_data1->error_code;
             }
             else
             {
-                g_ready_for_data = 1;
+                g_mmc_ready_for_data = 1;
 
                 cmd_data1->state_flags = cmd_data1->state_flags | MMC_COMMAND_COMPLETE_FLAG;
-                cmd_data1->response.dw.dw0 = (g_card_state << 9) | (g_ready_for_data << 8);
+                cmd_data1->response.dw.dw0 = (g_mmc_card_state << 9) | (g_mmc_ready_for_data << 8);
                 cmd_data1->error_code = 0;
                 cmd_data1->unk_64 = 3;
                 cmd_data1->wide_time1 = ksceKernelGetSystemTimeWide();
@@ -231,39 +235,39 @@ int emulate_mmc_command(sd_context_global* ctx, cmd_input* cmd_data1, cmd_input*
                 //not sure if this is needed
                 if(cmd_data1->base_198 > 0)
                 {
-                    memcpy(cmd_data1->base_198, CMD8_data, 0x200);
+                    memcpy(cmd_data1->base_198, MMC_CMD8_data, 0x200);
                 }
 
-                memcpy(cmd_data1->buffer, CMD8_data, 0x200);
+                memcpy(cmd_data1->buffer, MMC_CMD8_data, 0x200);
 
                 //ksceKernelDelayThread(100000); //1 second / 10
 
                 cmd_data1->wide_time2 = ksceKernelGetSystemTimeWide();
 
-                g_card_state = TRANSFER_MMC_STATE;
+                g_mmc_card_state = TRANSFER_MMC_STATE;
                 return cmd_data1->error_code;
             }
         }
         case 9:
         {
             cmd_data1->state_flags = cmd_data1->state_flags | MMC_COMMAND_COMPLETE_FLAG;
-            memcpy(cmd_data1->response.db.data, CMD9_resp, 0x10);
+            memcpy(cmd_data1->response.db.data, MMC_CMD9_resp, 0x10);
             cmd_data1->error_code = 0;
             cmd_data1->unk_64 = 3;
             cmd_data1->wide_time1 = ksceKernelGetSystemTimeWide();
 
-            g_card_state = STANDBY_MMC_STATE;
+            g_mmc_card_state = STANDBY_MMC_STATE;
             return cmd_data1->error_code;
         }
         case 13:
         {
             cmd_data1->state_flags = cmd_data1->state_flags | MMC_COMMAND_COMPLETE_FLAG;
-            cmd_data1->response.dw.dw0 = (g_card_state << 9) | (g_ready_for_data << 8);
+            cmd_data1->response.dw.dw0 = (g_mmc_card_state << 9) | (g_mmc_ready_for_data << 8); //cmd13 returns current state so we dont need to set g_mmc_ready_for_data
             cmd_data1->error_code = 0;
             cmd_data1->unk_64 = 3;
             cmd_data1->wide_time1 = ksceKernelGetSystemTimeWide();
 
-            g_card_state = TRANSFER_MMC_STATE;
+            g_mmc_card_state = TRANSFER_MMC_STATE;
             return cmd_data1->error_code;
         }
         case 16:
@@ -272,16 +276,16 @@ int emulate_mmc_command(sd_context_global* ctx, cmd_input* cmd_data1, cmd_input*
             cmd_data1->unk_64 = 3;
             cmd_data1->wide_time1 = ksceKernelGetSystemTimeWide();
 
-            g_card_state = TRANSFER_MMC_STATE;
+            g_mmc_card_state = TRANSFER_MMC_STATE;
             return cmd_data1->error_code;
         }
         //this command currently glitches. infinite loop after 2nd command
         case 17:
         {
-            g_ready_for_data = 1;
+            g_mmc_ready_for_data = 1;
 
             cmd_data1->state_flags = cmd_data1->state_flags | MMC_COMMAND_COMPLETE_FLAG;
-            cmd_data1->response.dw.dw0 = (g_card_state << 9) | (g_ready_for_data << 8);
+            cmd_data1->response.dw.dw0 = (g_mmc_card_state << 9) | (g_mmc_ready_for_data << 8);
             cmd_data1->error_code = 0;
             cmd_data1->unk_64 = 3;
             cmd_data1->wide_time1 = ksceKernelGetSystemTimeWide();
@@ -308,16 +312,16 @@ int emulate_mmc_command(sd_context_global* ctx, cmd_input* cmd_data1, cmd_input*
 
             cmd_data1->wide_time2 = ksceKernelGetSystemTimeWide();
 
-            g_card_state = TRANSFER_MMC_STATE;
+            g_mmc_card_state = TRANSFER_MMC_STATE;
             return cmd_data1->error_code;
         }
         //not sure if this command works
         case 23:
         {
-            g_ready_for_data = 1;
+            g_mmc_ready_for_data = 1;
 
             cmd_data1->state_flags = cmd_data1->state_flags | MMC_COMMAND_COMPLETE_FLAG;
-            cmd_data1->response.dw.dw0 = (g_card_state << 9) | (g_ready_for_data << 8);
+            cmd_data1->response.dw.dw0 = (g_mmc_card_state << 9) | (g_mmc_ready_for_data << 8);
             cmd_data1->error_code = 0;
             cmd_data1->unk_64 = 3;
             cmd_data1->wide_time1 = ksceKernelGetSystemTimeWide();
@@ -327,7 +331,7 @@ int emulate_mmc_command(sd_context_global* ctx, cmd_input* cmd_data1, cmd_input*
                 if(cmd_data2->command == 18)
                 {
                     cmd_data2->state_flags = cmd_data2->state_flags | MMC_COMMAND_COMPLETE_FLAG;
-                    cmd_data2->response.dw.dw0 = (g_card_state << 9) | (g_ready_for_data << 8);
+                    cmd_data2->response.dw.dw0 = (g_mmc_card_state << 9) | (g_mmc_ready_for_data << 8);
                     cmd_data2->error_code = 0;
                     cmd_data2->unk_64 = 3;
                     cmd_data2->wide_time1 = ksceKernelGetSystemTimeWide();
@@ -367,7 +371,7 @@ int emulate_mmc_command(sd_context_global* ctx, cmd_input* cmd_data1, cmd_input*
                 return 0x80320002;
             }
 
-            g_card_state = TRANSFER_MMC_STATE;
+            g_mmc_card_state = TRANSFER_MMC_STATE;
             return cmd_data1->error_code;
         }
         case 55:
@@ -376,7 +380,7 @@ int emulate_mmc_command(sd_context_global* ctx, cmd_input* cmd_data1, cmd_input*
             cmd_data1->unk_64 = 3;
             cmd_data1->wide_time1 = ksceKernelGetSystemTimeWide();
 
-            g_card_state = INVALID_MMC_STATE;
+            g_mmc_card_state = INVALID_MMC_STATE;
             return cmd_data1->error_code;
         }
         default:

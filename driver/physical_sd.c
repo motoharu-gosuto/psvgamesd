@@ -4,6 +4,7 @@
 #include "global_log.h"
 #include "cmd56_key.h"
 #include "sector_api.h"
+#include "utils.h"
 
 #include "defines.h"
 
@@ -42,24 +43,34 @@ int send_command_hook(sd_context_global* ctx, cmd_input* cmd_data1, cmd_input* c
     {
       cmd_data1->argument = cmd_data1->argument + ADDRESS_OFFSET; //fixup address. I have no idea why I should do it
     }
+
+    int res = TAI_CONTINUE(int, send_command_hook_ref, ctx, cmd_data1, cmd_data2, nIter, num);
+    return res;
   }
-
-  int res = TAI_CONTINUE(int, send_command_hook_ref, ctx, cmd_data1, cmd_data2, nIter, num);
-
-  return res;
+  else
+  {
+    int res = TAI_CONTINUE(int, send_command_hook_ref, ctx, cmd_data1, cmd_data2, nIter, num);
+    return res;
+  }
 }
 
 //this is a hook for sd init operation (mmc init operation is different)
 //we need to imitate cmd56 handshake after init
 //this is done by writing last cmd56 packet to correct location of GcAuthMgr module
 //we hook this function instead of gc because gc funciton is not called
-int init_sd_hook(int sd_ctx_index, void** ctx_part)
+int init_sd_hook_physical(int sd_ctx_index, void** ctx_part)
 {
-  int res = TAI_CONTINUE(int, init_sd_hook_ref, sd_ctx_index, ctx_part);
-  
-  set_5018_data();
-  
-  return res;
+  if(sd_ctx_index == SCE_SDIF_DEV_GAME_CARD)
+  {
+    int res = TAI_CONTINUE(int, init_sd_hook_ref, sd_ctx_index, ctx_part);
+    set_5018_data();
+    return res;
+  }
+  else
+  {
+    int res = TAI_CONTINUE(int, init_sd_hook_ref, sd_ctx_index, ctx_part);
+    return res;
+  }
 } 
 
 int initialize_hooks_physical_sd()
@@ -92,7 +103,7 @@ int initialize_hooks_physical_sd()
     
     //this hooks sd init function (there is separate function for mmc init)
     //this hook is used to set cmd56 handshake data
-    init_sd_hook_id = taiHookFunctionExportForKernel(KERNEL_PID, &init_sd_hook_ref, "SceSdif", SceSdifForDriver_NID, 0xc1271539, init_sd_hook);
+    init_sd_hook_id = taiHookFunctionExportForKernel(KERNEL_PID, &init_sd_hook_ref, "SceSdif", SceSdifForDriver_NID, 0xc1271539, init_sd_hook_physical);
 
     //this hooks command send function which is the main function for executing all commands that are sent from Vita to SD/MMC devices
     //this hook is used to fix cmd17/cmd18 sector offset
