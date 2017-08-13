@@ -11,6 +11,8 @@
 
 #include "global_log.h"
 #include "mbr_types.h"
+#include "cmd56_key.h"
+#include "psv_types.h"
 
 typedef struct dump_args
 {
@@ -23,6 +25,86 @@ SceUID dumpThreadId = -1;
 #define DUMP_BLOCK_SIZE 0x10
 
 char dump_buffer[SD_DEFAULT_SECTOR_SIZE * DUMP_BLOCK_SIZE];
+
+int dump_img(SceUID dev_fd, SceUID out_fd, const MBR* dump_mbr)
+{
+  //dump sectors - main part
+  SceSize nBlocks = dump_mbr->sizeInBlocks / DUMP_BLOCK_SIZE;
+  for(int i = 0; i < nBlocks; i++)
+  {
+    if((i % 0x1000) == 0)
+    {
+      snprintf(sprintfBuffer, 256, "%x from %x\n", i, nBlocks);
+      FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
+
+      ksceKernelPowerTick(SCE_KERNEL_POWER_TICK_DISABLE_AUTO_SUSPEND);
+    }
+
+    ksceIoRead(dev_fd, dump_buffer, SD_DEFAULT_SECTOR_SIZE * DUMP_BLOCK_SIZE);
+
+    ksceIoWrite(out_fd, dump_buffer, SD_DEFAULT_SECTOR_SIZE * DUMP_BLOCK_SIZE);
+  }
+
+  //dump sectors - tail
+  SceSize nTail = dump_mbr->sizeInBlocks % DUMP_BLOCK_SIZE;
+  if(nTail > 0)
+  {
+    ksceIoRead(dev_fd, dump_buffer, SD_DEFAULT_SECTOR_SIZE * nTail);
+
+    ksceIoWrite(out_fd, dump_buffer, SD_DEFAULT_SECTOR_SIZE * nTail);
+  }
+
+  return 0;
+}
+
+int dump_header(SceUID dev_fd, SceUID out_fd, const MBR* dump_mbr)
+{
+  //get data from gc memory
+  char data_5018_buffer[0x34];
+  get_5018_data(data_5018_buffer);
+
+  //construct header
+  psv_file_header_v1 img_header;
+  img_header.magic = PSV_MAGIC;
+  img_header.version = PSV_VERSION_V1;
+  memcpy(img_header.key1, data_5018_buffer, 0x10);
+  memcpy(img_header.key2, data_5018_buffer + 0x10, 0x10);
+  memcpy(img_header.signature, data_5018_buffer + 0x20, 0x14);
+  img_header.image_size = dump_mbr->sizeInBlocks * SD_DEFAULT_SECTOR_SIZE;
+
+  //write data
+  ksceIoWrite(out_fd, &img_header, sizeof(psv_file_header_v1));
+
+  return 0;
+}
+
+int dump_core(SceUID dev_fd, SceUID out_fd)
+{
+  //get mbr data
+  MBR dump_mbr;
+
+  ksceIoRead(dev_fd, &dump_mbr, sizeof(MBR));
+
+  if(memcmp(dump_mbr.header, SCEHeader, 0x20) != 0)
+  {
+    FILE_GLOBAL_WRITE_LEN("SCE header is invalid\n");
+    return -1;
+  }
+
+  snprintf(sprintfBuffer, 256, "max sector in sd dev: %x\n", dump_mbr.sizeInBlocks);
+  FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
+
+  //seek to beginning
+  ksceIoLseek(dev_fd, 0, SEEK_SET);
+
+  //write header info
+  dump_header(dev_fd, out_fd, &dump_mbr);
+
+  //dump image itself
+  //dump_img(dev_fd, out_fd, &dump_mbr);
+
+  return 0;
+}
 
 int dump_thread(SceSize args, void* argp)
 {
@@ -56,51 +138,7 @@ int dump_thread(SceSize args, void* argp)
 
   FILE_GLOBAL_WRITE_LEN("Opened output file\n");
 
-  //get mbr data
-  MBR dump_mbr;
-
-  ksceIoRead(dev_fd, &dump_mbr, sizeof(MBR));
-
-  if(memcmp(dump_mbr.header, SCEHeader, 0x20) != 0)
-  {
-    FILE_GLOBAL_WRITE_LEN("SCE header is invalid\n");
-
-    ksceIoClose(out_fd);
-    ksceIoClose(dev_fd);
-    return -1;
-  }
-
-  snprintf(sprintfBuffer, 256, "max sector in sd dev: %x\n", dump_mbr.sizeInBlocks);
-  FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
-
-  //seek to beginning
-  ksceIoLseek(dev_fd, 0, SEEK_SET);
-
-  //dump sectors - main part
-  SceSize nBlocks = dump_mbr.sizeInBlocks / DUMP_BLOCK_SIZE;
-  for(int i = 0; i < nBlocks; i++)
-  {
-    if((i % 0x1000) == 0)
-    {
-      snprintf(sprintfBuffer, 256, "%x from %x\n", i, nBlocks);
-      FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
-
-      ksceKernelPowerTick(SCE_KERNEL_POWER_TICK_DISABLE_AUTO_SUSPEND);
-    }
-
-    ksceIoRead(dev_fd, dump_buffer, SD_DEFAULT_SECTOR_SIZE * DUMP_BLOCK_SIZE);
-
-    ksceIoWrite(out_fd, dump_buffer, SD_DEFAULT_SECTOR_SIZE * DUMP_BLOCK_SIZE);
-  }
-
-  //dump sectors - tail
-  SceSize nTail = dump_mbr.sizeInBlocks % DUMP_BLOCK_SIZE;
-  if(nTail > 0)
-  {
-    ksceIoRead(dev_fd, dump_buffer, SD_DEFAULT_SECTOR_SIZE * nTail);
-
-    ksceIoWrite(out_fd, dump_buffer, SD_DEFAULT_SECTOR_SIZE * nTail);
-  }
+  dump_core(dev_fd, out_fd);
 
   FILE_GLOBAL_WRITE_LEN("Dump finished\n");
 
@@ -131,6 +169,8 @@ int initialize_dump_threading(const char* dump_path)
 
 int deinitialize_dump_threading()
 {
+  //TODO: need to implement cancel functionality
+
   if(dumpThreadId >= 0)
   {
     int waitRet = 0;

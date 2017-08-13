@@ -85,7 +85,12 @@ int send_command_emu_hook(sd_context_global* ctx, cmd_input* cmd_data1, cmd_inpu
 //this function is called only for game cards in mmc mode
 int gc_cmd56_handshake_override_hook(int param0)
 {
-  set_5018_data();
+  //get data from iso
+  char data_5018_buffer[0x34];
+  get_cmd56_data(data_5018_buffer);
+
+  //set data in gc memory
+  set_5018_data(data_5018_buffer);
 
   FILE_GLOBAL_WRITE_LEN("override cmd56 handshake\n");
 

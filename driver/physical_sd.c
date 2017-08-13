@@ -5,6 +5,7 @@
 #include "cmd56_key.h"
 #include "sector_api.h"
 #include "utils.h"
+#include "reader.h"
 
 #include "defines.h"
 
@@ -63,7 +64,14 @@ int init_sd_hook_physical(int sd_ctx_index, void** ctx_part)
   if(sd_ctx_index == SCE_SDIF_DEV_GAME_CARD)
   {
     int res = TAI_CONTINUE(int, init_sd_hook_ref, sd_ctx_index, ctx_part);
-    set_5018_data();
+
+    //get data from iso
+    char data_5018_buffer[0x34];
+    get_cmd56_data(data_5018_buffer);
+
+    //set data in gc memory
+    set_5018_data(data_5018_buffer);
+
     return res;
   }
   else

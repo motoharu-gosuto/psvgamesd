@@ -25,3 +25,6 @@ SceUID mmc_read_hook_id = -1;
 
 tai_hook_ref_t get_insert_state_hook_ref;
 SceUID get_insert_state_hook_id = -1; 
+
+tai_hook_ref_t clear_sensitive_data_hook_ref;
+SceUID clear_sensitive_data_hook_id = -1;

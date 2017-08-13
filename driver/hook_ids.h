@@ -8,6 +8,7 @@
 #define SceSblGcAuthMgrGcAuthForDriver_NID 0xC6627F5E
 #define SceThreadmgrForDriver_NID 0xE2C40624
 #define SceKernelUtilsForDriver_NID 0x496AD8B4
+#define SceSblGcAuthMgrDrmBBForDriver_NID 0x1926B182
 
 extern tai_hook_ref_t sd_read_hook_ref;
 extern SceUID sd_read_hook_id;
@@ -31,3 +32,6 @@ extern SceUID mmc_read_hook_id;
 
 extern tai_hook_ref_t get_insert_state_hook_ref;
 extern SceUID get_insert_state_hook_id;
+
+extern tai_hook_ref_t clear_sensitive_data_hook_ref;
+extern SceUID clear_sensitive_data_hook_id;

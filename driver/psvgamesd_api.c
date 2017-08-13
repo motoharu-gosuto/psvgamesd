@@ -17,6 +17,7 @@
 #include "virtual_mmc.h" 
 #include "virtual_sd.h"
 #include "ins_rem_card.h"
+#include "dumper.h"
 
 int set_iso_path(const char* path)
 {
@@ -136,10 +137,14 @@ int dump_mmc_card_start(const char* path)
   //snprintf(sprintfBuffer, 256, "dump_mmc_card_start %s\n", path_kernel);
   //FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
 
+  initialize_dump_threading(path_kernel);
+
   return 0;
 }
 
 int dump_mmc_card_cancel()
 {
+  deinitialize_dump_threading();
+
   return 0;
 }

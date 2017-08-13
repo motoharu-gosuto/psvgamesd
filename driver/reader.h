@@ -17,5 +17,7 @@ extern int g_res;
 int set_reader_iso_path(const char* path);
 int clear_reader_iso_path();
 
+int get_cmd56_data(char* buffer);
+
 int initialize_read_threading();
 int deinitialize_read_threading();
