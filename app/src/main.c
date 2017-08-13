@@ -742,7 +742,7 @@ int SCE_CTRL_CROSS_callback()
       strncpy(full_path, g_current_directory, 256);
       strncat(full_path, "/", 256);
       strncat(full_path, cnt_id, 256);
-      strncat(full_path, ".iso", 256);
+      strncat(full_path, ".psv", 256);
       
       dump_mmc_card_start(full_path);
 

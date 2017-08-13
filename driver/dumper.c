@@ -166,8 +166,9 @@ int dump_thread(SceSize args, void* argp)
 } 
 
 dump_args da_inst;
+char da_inst_dump_path[256] = {0};
 
-int handle_dump_request(int dump_state, char* dump_path)
+int handle_dump_request(int dump_state, const char* dump_path)
 {
   FILE_GLOBAL_WRITE_LEN("handle_dump_request\n");
 
@@ -175,14 +176,19 @@ int handle_dump_request(int dump_state, char* dump_path)
   {
     case DUMP_STATE_START:
     {
-      g_dumpThreadId = ksceKernelCreateThread("DumpThread", &dump_thread, 0x64, 0x1000, 0, 0, 0);
+      g_dumpThreadId = ksceKernelCreateThread("DumpThread", &dump_thread, 0x64, 0x10000, 0, 0, 0);
       
       if(g_dumpThreadId >= 0)
       {
         FILE_GLOBAL_WRITE_LEN("Created Dump Thread\n");
 
-        memset(da_inst.dump_path, 0, 256);
-        strncpy(da_inst.dump_path, dump_path, 256);
+        snprintf(sprintfBuffer, 256, "path %s\n", dump_path);
+        FILE_GLOBAL_WRITE_LEN(sprintfBuffer);     
+
+        //copying the path to yet another variable to be able to clear g_dump_path that is used for requests
+        memset(da_inst_dump_path, 0, 256);
+        strncpy(da_inst_dump_path, dump_path, 256);
+        da_inst.dump_path = da_inst_dump_path;
 
         int res = ksceKernelStartThread(g_dumpThreadId, sizeof(dump_args), &da_inst);
       }
@@ -275,7 +281,7 @@ int initialize_dump_threading()
   if(dump_resp_cond >= 0)
     FILE_GLOBAL_WRITE_LEN("Created dump_resp_cond\n");
 
-  g_dumpPollThreadId = ksceKernelCreateThread("DumpPollThread", &dump_poll_thread, 0x64, 0x1000, 0, 0, 0);
+  g_dumpPollThreadId = ksceKernelCreateThread("DumpPollThread", &dump_poll_thread, 0x64, 0x10000, 0, 0, 0);
 
   if(g_dumpPollThreadId >= 0)
   {
