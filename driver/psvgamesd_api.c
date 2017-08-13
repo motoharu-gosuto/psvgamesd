@@ -10,6 +10,8 @@
 
 #include "defines.h"
 
+#include "global_log.h"
+
 #include "physical_sd.h"
 #include "physical_mmc.h"
 #include "virtual_mmc.h" 
@@ -122,5 +124,22 @@ int deinitialize_virtual_sd()
   deinitialize_hooks_virtual_sd();
 
   //FILE_GLOBAL_WRITE_LEN("deinitialize_virtual_sd\n");
+  return 0;
+}
+
+int dump_mmc_card_start(const char* path)
+{
+  char path_kernel[256];
+  memset(path_kernel, 0, 256);
+  ksceKernelStrncpyUserToKernel(path_kernel, (uintptr_t)path, 256);
+
+  //snprintf(sprintfBuffer, 256, "dump_mmc_card_start %s\n", path_kernel);
+  //FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
+
+  return 0;
+}
+
+int dump_mmc_card_cancel()
+{
   return 0;
 }

@@ -23,3 +23,7 @@ int deinitialize_physical_sd();
 int initialize_virtual_sd();
 
 int deinitialize_virtual_sd();
+
+int dump_mmc_card_start(const char* path);
+
+int dump_mmc_card_cancel();

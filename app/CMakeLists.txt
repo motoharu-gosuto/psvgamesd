@@ -24,6 +24,7 @@ include_directories(
 
 add_executable(${SHORT_NAME}
   src/main.c
+  src/sfo_utils.c
 )
 
 target_link_libraries(${SHORT_NAME}

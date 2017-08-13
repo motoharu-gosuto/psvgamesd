@@ -22,3 +22,5 @@ psvgamesd:
         - deinitialize_physical_sd
         - initialize_virtual_sd
         - deinitialize_virtual_sd
+        - dump_mmc_card_start
+        - dump_mmc_card_cancel

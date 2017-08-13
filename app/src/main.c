@@ -1,5 +1,5 @@
 #include <stdio.h>
-#include <malloc.h>
+#include <string.h>
 
 #include <psp2/net/net.h>
 #include <psp2/net/netctl.h>
@@ -9,10 +9,12 @@
 #include <psp2/ctrl.h>
 #include <psp2/io/stat.h>
 #include <psp2/io/dirent.h>
+#include <psp2/io/fcntl.h>
 
 #include <psvgamesd_api.h>
 
 #include "debugScreen.h"
+#include "sfo_utils.h"
 
 //---
 
@@ -323,6 +325,34 @@ void set_insertion_state(uint32_t value)
 
 //---
 
+SceUID g_content_id_mutex_id = 0;
+
+char g_content_id[SFO_MAX_STR_VALUE_LEN] = {0};
+
+void get_content_id(char* result)
+{
+  sceKernelLockMutex(g_content_id_mutex_id, 1, 0);
+  memset(result, 0, SFO_MAX_STR_VALUE_LEN);
+  strncpy(result, g_content_id, SFO_MAX_STR_VALUE_LEN);
+  sceKernelUnlockMutex(g_content_id_mutex_id, 1);
+}
+
+void set_content_id(const char* value)
+{
+  sceKernelLockMutex(g_content_id_mutex_id, 1, 0);
+  strncpy(g_content_id, value, SFO_MAX_STR_VALUE_LEN);
+  sceKernelUnlockMutex(g_content_id_mutex_id, 1);
+}
+
+void clear_content_id()
+{
+  sceKernelLockMutex(g_content_id_mutex_id, 1, 0);
+  memset(g_content_id, 0, SFO_MAX_STR_VALUE_LEN);
+  sceKernelUnlockMutex(g_content_id_mutex_id, 1);
+}
+
+//---
+
 //insert iso
 int SCE_CTRL_START_callback()
 {
@@ -475,6 +505,69 @@ int select_driver_mode(uint32_t prev_mode, uint32_t new_mode)
   return 0;
 }
 
+int get_gro0_sfo_path(char* sfo_path)
+{
+  memset(sfo_path, 0, 256);
+
+  SceUID dirId = sceIoDopen("gro0:app");
+  if(dirId >= 0)
+  {
+    int res = 0;
+    do
+    {
+      SceIoDirent dir;
+      memset(&dir, 0, sizeof(SceIoDirent));
+
+      res = sceIoDread(dirId, &dir);
+      if(res > 0)
+      {
+        if(SCE_S_ISDIR(dir.d_stat.st_mode))
+        {
+          strncpy(sfo_path, "gro0:app/", 256);
+          strncat(sfo_path, dir.d_name, 256);
+          strncat(sfo_path, "/sce_sys/param.sfo", 256);
+          break;
+        }
+      }
+    }
+    while(res > 0);
+
+    sceIoDclose(dirId);
+  }
+
+  return 0;
+}
+
+int get_current_content_id_internal(char* content_id)
+{
+  //get path to sfo file in gro0 partition
+  char sfo_path[256];
+  get_gro0_sfo_path(sfo_path);
+
+  //verify path length
+  if(strnlen(sfo_path, 256) == 0)
+    return -1;
+
+  //verify that sfo file exists
+  SceUID fd = sceIoOpen(sfo_path, SCE_O_RDONLY, 0777);
+  if(fd < 0)
+    return -1;
+
+  sceIoClose(fd);
+  
+  //parse file
+  if(init_sfo_structures(sfo_path) < 0)
+    return -1;
+
+  if(get_utf8_value(sfo_path, SFO_CONTENT_ID_KEY, content_id, SFO_MAX_STR_VALUE_LEN) < 0)
+    return -1;
+
+  if(strnlen(content_id, SFO_MAX_STR_VALUE_LEN) == 0)
+    return -1;  
+
+  return 0;
+}
+
 //select driver mode
 int SCE_CTRL_RIGHT_callback()
 {
@@ -499,6 +592,12 @@ int SCE_CTRL_RIGHT_callback()
     }
 
     clear_selected_iso();
+  }
+
+  //clear current content id if previous driver mode was physical mmc
+  if(prev_driver_mode == DRIVER_MODE_PHYSICAL_MMC)
+  {
+    clear_content_id();
   }
 
   sceKernelUnlockMutex(g_driver_mode_mutex_id, 1);
@@ -534,6 +633,12 @@ int SCE_CTRL_LEFT_callback()
     }
 
     clear_selected_iso();
+  }
+
+  //clear current content id if previous driver mode was physical mmc
+  if(prev_driver_mode == DRIVER_MODE_PHYSICAL_MMC)
+  {
+    clear_content_id();
   }
 
   sceKernelUnlockMutex(g_driver_mode_mutex_id, 1);
@@ -602,8 +707,8 @@ int SCE_CTRL_CIRCLE_callback()
         char full_path[256];
         memset(full_path, 0, 256);
         strncpy(full_path, g_current_directory, 256);
-        strcat(full_path, "/");
-        strcat(full_path, filepath);
+        strncat(full_path, "/", 256);
+        strncat(full_path, filepath, 256);
 
         set_iso_path(full_path);
 
@@ -618,7 +723,42 @@ int SCE_CTRL_CIRCLE_callback()
 
 int SCE_CTRL_CROSS_callback()
 {
-  psvDebugScreenPrintf("psvgamesd: SCE_CTRL_CROSS\n");
+  //psvDebugScreenPrintf("psvgamesd: SCE_CTRL_CROSS\n");
+
+  uint32_t d_mode = get_driver_mode();
+
+  // dumping is only allowed in physical mmc mode
+  if(d_mode == DRIVER_MODE_PHYSICAL_MMC)
+  {
+    char cnt_id[SFO_MAX_STR_VALUE_LEN];
+    int res = get_current_content_id_internal(cnt_id);
+    if(res >= 0)
+    {
+      //save new content id
+      set_content_id(cnt_id);
+
+      //start dumping the card - this will start new thread in kernel
+      char full_path[256];
+      strncpy(full_path, g_current_directory, 256);
+      strncat(full_path, "/", 256);
+      strncat(full_path, cnt_id, 256);
+      strncat(full_path, ".iso", 256);
+      
+      dump_mmc_card_start(full_path);
+
+      //redraw screen
+      set_redraw_request(1);
+    }
+    else
+    {
+      //clear current id
+      clear_content_id();
+
+      //redraw screen
+      set_redraw_request(1);
+    }
+  }
+
   return 0;
 }
 
@@ -700,16 +840,6 @@ SceUInt64 time_diff(SceUInt64 old, SceUInt64 new)
     return new - old;
 }
 
-int set_dir(char* path)
-{  
-  strncpy(g_current_directory, path, 256);
-
-  set_max_file_position(get_dir_max_file_pos(path));
-  set_file_position(0);
-
-  return 0;
-}
-
 int draw_dir(char* path)
 {
   psvDebugScreenClear(COLOR_BLACK);
@@ -723,6 +853,26 @@ int draw_dir(char* path)
   psvDebugScreenPrintf("\e[9%im driver mode: %s\n", 7, sel_driver_mode);
 
   uint32_t d_mode = get_driver_mode();
+
+  if(d_mode == DRIVER_MODE_PHYSICAL_MMC)
+  {
+    char cnt_id[SFO_MAX_STR_VALUE_LEN];
+    get_content_id(cnt_id);
+
+    if(strnlen(cnt_id, SFO_MAX_STR_VALUE_LEN) > 0)
+    {
+      psvDebugScreenPrintf("\e[9%im content id: %s\n", 7, cnt_id);
+    }
+    else
+    {
+      psvDebugScreenPrintf("\e[9%im content id: %s\n", 7, "Game Card is not inserted");
+    }
+  }
+  else
+  {
+    psvDebugScreenPrintf("\e[9%im content id:\n", 0);
+  }
+
   if(d_mode == DRIVER_MODE_VIRTUAL_MMC || d_mode == DRIVER_MODE_VIRTUAL_SD)
   {
     char sel_iso[256];
@@ -787,6 +937,8 @@ int draw_dir(char* path)
 
     sceIoDclose(dirId);
   }
+
+  return 0;
 }
 
 int main_draw_loop()
@@ -829,6 +981,8 @@ int initialize_threading()
 
   g_insertion_state_mutex_id = sceKernelCreateMutex("insertion_state", 0, 0, 0);
 
+  g_content_id_mutex_id = sceKernelCreateMutex("g_content_id", 0, 0, 0);
+
   g_ctrl_thread_id = sceKernelCreateThread("ctrl", main_ctrl_loop, 0x40, 0x1000, 0, 0, 0);
 
   if(g_ctrl_thread_id >= 0)
@@ -851,6 +1005,8 @@ int deinitialize_threading()
 
   sceKernelDeleteMutex(g_insertion_state_mutex_id);
 
+  sceKernelDeleteMutex(g_content_id_mutex_id);
+
   int waitRet = 0;
   sceKernelWaitThreadEnd(g_ctrl_thread_id, &waitRet, 0);
 
@@ -859,15 +1015,36 @@ int deinitialize_threading()
   return 0;
 }
 
+int set_dir(char* path)
+{  
+  strncpy(g_current_directory, path, 256);
+
+  set_max_file_position(get_dir_max_file_pos(path));
+  set_file_position(0);
+
+  return 0;
+}
+
+int set_default_state()
+{
+  set_app_running(1);
+  set_redraw_request(1);
+
+  set_dir(ISO_ROOT_DIRECTORY);
+
+  clear_selected_iso();
+
+  set_driver_mode(DRIVER_MODE_PHYSICAL_MMC);
+  set_insertion_state(INSERTION_STATE_REMOVED);
+
+  clear_content_id();
+}
+
 int main(int argc, char *argv[]) 
 {
   psvDebugScreenInit();
 
-  set_app_running(1);
-  set_redraw_request(1);
-  set_dir(ISO_ROOT_DIRECTORY);
-  set_driver_mode(DRIVER_MODE_PHYSICAL_MMC);
-  set_insertion_state(INSERTION_STATE_REMOVED);
+  set_default_state();
 
   initialize_threading();
 
