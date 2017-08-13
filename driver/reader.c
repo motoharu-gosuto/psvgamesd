@@ -64,6 +64,13 @@ int set_reader_iso_path(const char* path)
   return 0;
 }
 
+int clear_reader_iso_path()
+{
+  memset(iso_path, 0, 256);
+
+  return 0;
+}
+
 int emulate_read(int sector, char* buffer, int nSectors)
 {
   int res = 0;

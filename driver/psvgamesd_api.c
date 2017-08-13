@@ -30,6 +30,13 @@ int set_iso_path(const char* path)
   return 0;
 }
 
+int clear_iso_path()
+{
+  clear_reader_iso_path();
+
+  return 0;
+}
+
 int insert_card()
 {
   #ifdef ENABLE_INSERT_EMU

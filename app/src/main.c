@@ -272,6 +272,13 @@ void set_selected_iso(const char* value)
   sceKernelUnlockMutex(g_selected_iso_mutex_id, 1);
 }
 
+void clear_selected_iso()
+{
+  sceKernelLockMutex(g_selected_iso_mutex_id, 1, 0);
+  memset(g_selected_iso, 0, 256);
+  sceKernelUnlockMutex(g_selected_iso_mutex_id, 1);
+}
+
 //---
 
 SceUID g_driver_mode_mutex_id = 0;
@@ -424,7 +431,7 @@ int select_driver_mode(uint32_t prev_mode, uint32_t new_mode)
     }
 
     //deselect iso
-    set_iso_path("");
+    clear_iso_path();
   }
 
   //execute deinit based on previous mode
@@ -491,7 +498,7 @@ int SCE_CTRL_RIGHT_callback()
       set_insertion_state(INSERTION_STATE_REMOVED);
     }
 
-    set_selected_iso("");
+    clear_selected_iso();
   }
 
   sceKernelUnlockMutex(g_driver_mode_mutex_id, 1);
@@ -526,7 +533,7 @@ int SCE_CTRL_LEFT_callback()
       set_insertion_state(INSERTION_STATE_REMOVED);
     }
 
-    set_selected_iso("");
+    clear_selected_iso();
   }
 
   sceKernelUnlockMutex(g_driver_mode_mutex_id, 1);

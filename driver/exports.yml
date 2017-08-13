@@ -11,6 +11,7 @@ psvgamesd:
       syscall: true
       functions:
         - set_iso_path
+        - clear_iso_path
         - insert_card
         - remove_card
         - initialize_physical_mmc

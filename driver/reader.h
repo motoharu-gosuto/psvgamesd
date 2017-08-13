@@ -15,6 +15,7 @@ extern int g_nSectors;
 extern int g_res;
 
 int set_reader_iso_path(const char* path);
+int clear_reader_iso_path();
 
 int initialize_read_threading();
 int deinitialize_read_threading();

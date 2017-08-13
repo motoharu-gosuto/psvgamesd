@@ -2,6 +2,8 @@
 
 int set_iso_path(const char* path);
 
+int clear_iso_path();
+
 int insert_card();
 
 int remove_card();
