@@ -1,3 +1,4 @@
+// incorporated some suggestions from yuifan
 // https://gist.github.com/yifanlu/d546e687f751f951b1109ffc8dd8d903
 
 #pragma once

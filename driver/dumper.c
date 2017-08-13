@@ -13,13 +13,30 @@
 #include "mbr_types.h"
 #include "cmd56_key.h"
 #include "psv_types.h"
+#include "functions.h"
+
+#define DUMP_STATE_START 1
+#define DUMP_STATE_STOP 0
 
 typedef struct dump_args
 {
   char* dump_path;
 } dump_args;
 
-SceUID dumpThreadId = -1;
+SceUID g_dumpThreadId = -1;
+
+SceUID g_dumpPollThreadId = -1;
+
+SceUID dump_req_lock = -1;
+SceUID dump_resp_lock = -1;
+
+SceUID dump_req_cond = -1;
+SceUID dump_resp_cond = -1;
+
+int g_dump_state = 0;
+char g_dump_path[256] = {0};
+
+//---------------
 
 //number of blocks per copy operation
 #define DUMP_BLOCK_SIZE 0x10
@@ -150,18 +167,126 @@ int dump_thread(SceSize args, void* argp)
 
 dump_args da_inst;
 
-int initialize_dump_threading(const char* dump_path)
+int handle_dump_request(int dump_state, char* dump_path)
 {
-  dumpThreadId = ksceKernelCreateThread("DumpThread", &dump_thread, 0x64, 0x1000, 0, 0, 0);
-  
-  if(dumpThreadId >= 0)
+  FILE_GLOBAL_WRITE_LEN("handle_dump_request\n");
+
+  switch(dump_state)
   {
-    FILE_GLOBAL_WRITE_LEN("Created Dump Thread\n");
+    case DUMP_STATE_START:
+    {
+      g_dumpThreadId = ksceKernelCreateThread("DumpThread", &dump_thread, 0x64, 0x1000, 0, 0, 0);
+      
+      if(g_dumpThreadId >= 0)
+      {
+        FILE_GLOBAL_WRITE_LEN("Created Dump Thread\n");
 
-    memset(da_inst.dump_path, 0, 256);
-    strncpy(da_inst.dump_path, dump_path, 256);
+        memset(da_inst.dump_path, 0, 256);
+        strncpy(da_inst.dump_path, dump_path, 256);
 
-    int res = ksceKernelStartThread(dumpThreadId, sizeof(dump_args), &da_inst);
+        int res = ksceKernelStartThread(g_dumpThreadId, sizeof(dump_args), &da_inst);
+      }
+      else
+      {
+        snprintf(sprintfBuffer, 256, "Failed to create Dump Thread: %x\n", g_dumpThreadId);
+        FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
+      }
+
+      break;
+    }
+    case DUMP_STATE_STOP:
+    {
+      //TODO: need to implement cancel functionality
+      /*
+      if(g_dumpThreadId >= 0)
+      {
+        int waitRet = 0;
+        ksceKernelWaitThreadEnd(g_dumpThreadId, &waitRet, 0);
+        
+        int delret = ksceKernelDeleteThread(g_dumpThreadId);
+      }
+      */
+      break;
+    }
+    default:
+    {
+      FILE_GLOBAL_WRITE_LEN("Unknown dump state\n");
+      break;
+    }
+  }
+
+  return 0;
+}
+
+int dump_poll_thread(SceSize args, void* argp)
+{
+  FILE_GLOBAL_WRITE_LEN("Started Dump Poll Thread\n");
+  
+  while(1)
+  {
+    //lock mutex
+    int res = ksceKernelLockMutex(dump_req_lock, 1, 0);
+    if(res < 0)
+    {
+      snprintf(sprintfBuffer, 256, "failed to ksceKernelLockMutex dump_req_lock : %x\n", res);
+      FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
+    }
+
+    //wait for request
+    res = sceKernelWaitCondForDriver(dump_req_cond, 0);
+    if(res < 0)
+    {
+      snprintf(sprintfBuffer, 256, "failed to sceKernelWaitCondForDriver dump_req_cond : %x\n", res);
+      FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
+    }
+
+    //unlock mutex
+    res = ksceKernelUnlockMutex(dump_req_lock, 1);
+    if(res < 0)
+    {
+      snprintf(sprintfBuffer, 256, "failed to ksceKernelUnlockMutex dump_req_lock : %x\n", res);
+      FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
+    }
+
+    handle_dump_request(g_dump_state, g_dump_path);
+
+    //return response
+    sceKernelSignalCondForDriver(dump_resp_cond);
+  }
+
+  return 0;
+}
+
+int initialize_dump_threading()
+{
+  dump_req_lock = ksceKernelCreateMutex("dump_req_lock", 0, 0, 0);
+  if(dump_req_lock >= 0)
+    FILE_GLOBAL_WRITE_LEN("Created dump_req_lock\n");
+
+  dump_req_cond = sceKernelCreateCondForDriver("dump_req_cond", 0, dump_req_lock, 0);
+  if(dump_req_cond >= 0)
+    FILE_GLOBAL_WRITE_LEN("Created dump_req_cond\n");
+
+  dump_resp_lock = ksceKernelCreateMutex("dump_resp_lock", 0, 0, 0);
+  if(dump_resp_lock >= 0)
+    FILE_GLOBAL_WRITE_LEN("Created dump_resp_lock\n");
+
+  dump_resp_cond = sceKernelCreateCondForDriver("dump_resp_cond", 0, dump_resp_lock, 0);
+  if(dump_resp_cond >= 0)
+    FILE_GLOBAL_WRITE_LEN("Created dump_resp_cond\n");
+
+  g_dumpPollThreadId = ksceKernelCreateThread("DumpPollThread", &dump_poll_thread, 0x64, 0x1000, 0, 0, 0);
+
+  if(g_dumpPollThreadId >= 0)
+  {
+    FILE_GLOBAL_WRITE_LEN("Created Dump Poll Thread\n");
+
+    int res = ksceKernelStartThread(g_dumpPollThreadId, 0, 0);
+  }
+  else
+  {
+    snprintf(sprintfBuffer, 256, "Failed to create Dump Poll Thread: %x\n", g_dumpPollThreadId);
+    FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
   }
 
   return 0;
@@ -169,15 +294,74 @@ int initialize_dump_threading(const char* dump_path)
 
 int deinitialize_dump_threading()
 {
-  //TODO: need to implement cancel functionality
-
-  if(dumpThreadId >= 0)
+  if(g_dumpPollThreadId >= 0)
   {
     int waitRet = 0;
-    ksceKernelWaitThreadEnd(dumpThreadId, &waitRet, 0);
+    ksceKernelWaitThreadEnd(g_dumpPollThreadId, &waitRet, 0);
     
-    int delret = ksceKernelDeleteThread(dumpThreadId);
+    int delret = ksceKernelDeleteThread(g_dumpPollThreadId);
   }
+
+  sceKernelDeleteCondForDriver(dump_req_cond);
+  sceKernelDeleteCondForDriver(dump_resp_cond);
+
+  ksceKernelDeleteMutex(dump_req_lock);
+  ksceKernelDeleteMutex(dump_resp_lock);
+
+  return 0;
+}
+
+//---------------
+
+int dump_request_response_base()
+{
+  //send request
+  sceKernelSignalCondForDriver(dump_req_cond);
+
+  //lock mutex
+  int res = ksceKernelLockMutex(dump_resp_lock, 1, 0);
+  if(res < 0)
+  {
+    snprintf(sprintfBuffer, 256, "failed to ksceKernelLockMutex dump_resp_lock : %x\n", res);
+    FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
+  }
+
+  //wait for response
+  res = sceKernelWaitCondForDriver(dump_resp_cond, 0);
+  if(res < 0)
+  {
+    snprintf(sprintfBuffer, 256, "failed to sceKernelWaitCondForDriver dump_resp_cond : %x\n", res);
+    FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
+  }
+
+  //unlock mutex
+  res = ksceKernelUnlockMutex(dump_resp_lock, 1);
+  if(res < 0)
+  {
+    snprintf(sprintfBuffer, 256, "failed to ksceKernelUnlockMutex dump_resp_lock : %x\n", res);
+    FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
+  }
+
+  return 0;
+}
+
+int dump_mmc_card_start_internal(const char* dump_path)
+{
+  g_dump_state = DUMP_STATE_START;
+  memset(g_dump_path, 0, 256);
+  strncpy(g_dump_path, dump_path, 256);
+
+  dump_request_response_base();
+
+  return 0;
+}
+
+int dump_mmc_card_stop_internal()
+{
+  g_dump_state = DUMP_STATE_STOP;
+  memset(g_dump_path, 0, 256);
+  
+  dump_request_response_base();
 
   return 0;
 }
