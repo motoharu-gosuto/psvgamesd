@@ -171,7 +171,7 @@ int readInput()
 
 //---
 
-SceUID g_app_running_mutex_id = 0;
+SceUID g_app_running_mutex_id = -1;
 
 uint32_t g_app_running = 0;
 
@@ -192,7 +192,7 @@ void set_app_running(uint32_t value)
 
 //---
 
-SceUID g_redraw_request_mutex_id = 0;
+SceUID g_redraw_request_mutex_id = -1;
 
 uint32_t g_redraw_request = 0;
 
@@ -213,7 +213,7 @@ void set_redraw_request(uint32_t value)
 
 //---
 
-SceUID g_file_position_mutex_id = 0;
+SceUID g_file_position_mutex_id = -1;
 
 uint32_t g_file_position = 0;
 
@@ -234,7 +234,7 @@ void set_file_position(uint32_t value)
 
 //---
 
-SceUID g_max_file_position_mutex_id = 0;
+SceUID g_max_file_position_mutex_id = -1;
 
 uint32_t g_max_file_position = 0;
 
@@ -255,7 +255,7 @@ void set_max_file_position(uint32_t value)
 
 //---
 
-SceUID g_selected_iso_mutex_id = 0;
+SceUID g_selected_iso_mutex_id = -1;
 
 char g_selected_iso[256] = {0};
 
@@ -283,7 +283,7 @@ void clear_selected_iso()
 
 //---
 
-SceUID g_driver_mode_mutex_id = 0;
+SceUID g_driver_mode_mutex_id = -1;
 
 uint32_t g_driver_mode = DRIVER_MODE_PHYSICAL_MMC;
 
@@ -304,7 +304,7 @@ void set_driver_mode(uint32_t value)
 
 //---
 
-SceUID g_insertion_state_mutex_id = 0;
+SceUID g_insertion_state_mutex_id = -1;
 
 uint32_t g_insertion_state = INSERTION_STATE_REMOVED;
 
@@ -325,7 +325,7 @@ void set_insertion_state(uint32_t value)
 
 //---
 
-SceUID g_content_id_mutex_id = 0;
+SceUID g_content_id_mutex_id = -1;
 
 char g_content_id[SFO_MAX_STR_VALUE_LEN] = {0};
 
@@ -349,6 +349,72 @@ void clear_content_id()
   sceKernelLockMutex(g_content_id_mutex_id, 1, 0);
   memset(g_content_id, 0, SFO_MAX_STR_VALUE_LEN);
   sceKernelUnlockMutex(g_content_id_mutex_id, 1);
+}
+
+//---
+
+#define DUMP_STATE_POLL_START 1
+#define DUMP_STATE_POLL_STOP 0
+
+SceUID g_dump_state_poll_running_state_mutex_id = -1;
+
+uint32_t g_dump_state_poll_running_state = 0;
+
+uint32_t get_dump_state_poll_running_state()
+{
+  sceKernelLockMutex(g_dump_state_poll_running_state_mutex_id, 1, 0);
+  uint32_t temp = g_dump_state_poll_running_state;
+  sceKernelUnlockMutex(g_dump_state_poll_running_state_mutex_id, 1);
+  return temp;
+}
+
+void set_dump_state_poll_running_state(uint32_t value)
+{
+  sceKernelLockMutex(g_dump_state_poll_running_state_mutex_id, 1, 0);
+  g_dump_state_poll_running_state = value;
+  sceKernelUnlockMutex(g_dump_state_poll_running_state_mutex_id, 1);
+}
+
+//---
+
+SceUID g_total_sectors_mutex_id = -1;
+
+uint32_t g_total_sectors = 0;
+
+uint32_t get_total_sectors()
+{
+  sceKernelLockMutex(g_total_sectors_mutex_id, 1, 0);
+  uint32_t temp = g_total_sectors;
+  sceKernelUnlockMutex(g_total_sectors_mutex_id, 1);
+  return temp;
+}
+
+void set_total_sectors(uint32_t value)
+{
+  sceKernelLockMutex(g_total_sectors_mutex_id, 1, 0);
+  g_total_sectors = value;
+  sceKernelUnlockMutex(g_total_sectors_mutex_id, 1);
+}
+
+//---
+
+SceUID g_progress_sectors_mutex_id = -1;
+
+uint32_t g_progress_sectors = 0;
+
+uint32_t get_progress_sectors()
+{
+  sceKernelLockMutex(g_progress_sectors_mutex_id, 1, 0);
+  uint32_t temp = g_progress_sectors;
+  sceKernelUnlockMutex(g_progress_sectors_mutex_id, 1);
+  return temp;
+}
+
+void set_progress_sectors(uint32_t value)
+{
+  sceKernelLockMutex(g_progress_sectors_mutex_id, 1, 0);
+  g_progress_sectors = value;
+  sceKernelUnlockMutex(g_progress_sectors_mutex_id, 1);
 }
 
 //---
@@ -665,7 +731,7 @@ int SCE_CTRL_RTRIGGER_callback()
 //exit app
 int SCE_CTRL_TRIANGLE_callback()
 {
-  psvDebugScreenPrintf("psvgamesd: SCE_CTRL_TRIANGLE\n");
+  //psvDebugScreenPrintf("psvgamesd: SCE_CTRL_TRIANGLE\n");
 
   set_app_running(0);
 
@@ -721,6 +787,72 @@ int SCE_CTRL_CIRCLE_callback()
   return 0;
 }
 
+int dump_status_poll_thread_internal(SceSize args, void* argp)
+{
+  while(1)
+  {
+    //wait 1 second
+    sceKernelDelayThread(1000000);
+
+    //get stats from kernel
+    uint32_t total_sectors = dump_mmc_get_total_sectors(); 
+    uint32_t progress_sectors = dump_mmc_get_progress_sectors();
+
+    //set to local vars
+    set_total_sectors(total_sectors);
+    set_progress_sectors(progress_sectors);
+
+    //redraw screen
+    set_redraw_request(1);
+
+    //check if cancel was requested
+    uint32_t rn_state = get_dump_state_poll_running_state();
+    if(rn_state == DUMP_STATE_POLL_STOP)
+    {
+      return 0;
+    }
+  }
+
+  return 0;
+}
+
+int dump_status_poll_thread(SceSize args, void* argp)
+{
+  set_dump_state_poll_running_state(DUMP_STATE_POLL_START);
+
+  dump_status_poll_thread_internal(args, argp);
+
+  set_dump_state_poll_running_state(DUMP_STATE_POLL_STOP);
+
+  return 0;
+}
+
+SceUID g_dump_status_poll_thread_id = -1;
+
+int initialize_dump_status_poll_threading()
+{
+  g_dump_status_poll_thread_id = sceKernelCreateThread("dump_status_poll", dump_status_poll_thread, 0x40, 0x1000, 0, 0, 0);
+  
+  if(g_dump_status_poll_thread_id >= 0)
+    sceKernelStartThread(g_dump_status_poll_thread_id, 0, 0);
+
+  return 0;
+}
+
+int deinitialize_dump_status_poll_threading()
+{
+  if(g_dump_status_poll_thread_id >= 0)
+  {
+    int waitRet = 0;
+    sceKernelWaitThreadEnd(g_dump_status_poll_thread_id, &waitRet, 0);
+  
+    sceKernelDeleteThread(g_dump_status_poll_thread_id);
+    g_dump_status_poll_thread_id = -1;
+  }
+
+  return 0;
+}
+
 int SCE_CTRL_CROSS_callback()
 {
   //psvDebugScreenPrintf("psvgamesd: SCE_CTRL_CROSS\n");
@@ -730,32 +862,48 @@ int SCE_CTRL_CROSS_callback()
   // dumping is only allowed in physical mmc mode
   if(d_mode == DRIVER_MODE_PHYSICAL_MMC)
   {
-    char cnt_id[SFO_MAX_STR_VALUE_LEN];
-    int res = get_current_content_id_internal(cnt_id);
-    if(res >= 0)
-    {
-      //save new content id
-      set_content_id(cnt_id);
+    uint32_t rn_state = get_dump_state_poll_running_state();
 
-      //start dumping the card - this will start new thread in kernel
-      char full_path[256];
-      strncpy(full_path, g_current_directory, 256);
-      strncat(full_path, "/", 256);
-      strncat(full_path, cnt_id, 256);
-      strncat(full_path, ".psv", 256);
+    //dont allow to enter dump status polling state if already polling
+    if(rn_state != DUMP_STATE_POLL_START)
+    {
+      char cnt_id[SFO_MAX_STR_VALUE_LEN];
+      int res = get_current_content_id_internal(cnt_id);
+      if(res >= 0)
+      {
+        //save new content id
+        set_content_id(cnt_id);
+
+        //start dumping the card - this will start new thread in kernel
+        char full_path[256];
+        strncpy(full_path, g_current_directory, 256);
+        strncat(full_path, "/", 256);
+        strncat(full_path, cnt_id, 256);
+        strncat(full_path, ".psv", 256);
+        
+        //start dump process in kernel
+        dump_mmc_card_start(full_path);
+
+        //redraw screen
+        set_redraw_request(1);
+
+        //start polling only after redraw request
+        //since thread will be requesting redraw as well
+        
+        //if previous dump status poll operation was not canceled - status poll thread will not be deinitialized
+        deinitialize_dump_status_poll_threading();
       
-      dump_mmc_card_start(full_path);
+        //initialize new thread
+        initialize_dump_status_poll_threading();
+      }
+      else
+      {
+        //clear current id
+        clear_content_id();
 
-      //redraw screen
-      set_redraw_request(1);
-    }
-    else
-    {
-      //clear current id
-      clear_content_id();
-
-      //redraw screen
-      set_redraw_request(1);
+        //redraw screen
+        set_redraw_request(1);
+      }
     }
   }
 
@@ -764,7 +912,33 @@ int SCE_CTRL_CROSS_callback()
 
 int SCE_CTRL_SQUARE_callback()
 {
-  psvDebugScreenPrintf("psvgamesd: SCE_CTRL_SQUARE\n");
+  //psvDebugScreenPrintf("psvgamesd: SCE_CTRL_SQUARE\n");
+
+  uint32_t d_mode = get_driver_mode();
+  
+  // dumping is only allowed in physical mmc mode
+  if(d_mode == DRIVER_MODE_PHYSICAL_MMC)
+  {
+    uint32_t rn_state = get_dump_state_poll_running_state();
+   
+    //dont allow to enter cancel state if not yet polling
+    if(rn_state != DUMP_STATE_POLL_STOP)
+    {
+      //stop dump process in kernel
+      dump_mmc_card_cancel();
+
+      //redraw screen
+      set_redraw_request(1);
+
+      //stop polling dump state
+
+      //indicate that we are entering cancel state (this will stop polling thread)
+      set_dump_state_poll_running_state(DUMP_STATE_POLL_STOP);
+
+      deinitialize_dump_status_poll_threading();
+    }
+  }
+
   return 0;
 }
 
@@ -873,6 +1047,26 @@ int draw_dir(char* path)
     psvDebugScreenPrintf("\e[9%im content id:\n", 0);
   }
 
+  if(d_mode == DRIVER_MODE_PHYSICAL_MMC)
+  {
+    uint32_t rn_state = get_dump_state_poll_running_state();
+    if(rn_state == DUMP_STATE_POLL_START)
+    {
+      uint32_t total_sectors = get_total_sectors();
+      uint32_t progress_sectors = get_progress_sectors();
+
+      psvDebugScreenPrintf("\e[9%im dump progress: %x | %x\n", 7, progress_sectors, total_sectors);
+    }
+    else
+    {
+      psvDebugScreenPrintf("\e[9%im dump progress: %x | %x\n", 7, 0x0, 0x0);
+    }
+  }
+  else
+  {
+    psvDebugScreenPrintf("\e[9%im dump progress:\n", 0);
+  }
+
   if(d_mode == DRIVER_MODE_VIRTUAL_MMC || d_mode == DRIVER_MODE_VIRTUAL_SD)
   {
     char sel_iso[256];
@@ -965,7 +1159,7 @@ int main_draw_loop()
   return 0;
 }
 
-SceUID g_ctrl_thread_id = 0;
+SceUID g_ctrl_thread_id = -1;
 
 int initialize_threading()
 {
@@ -981,7 +1175,13 @@ int initialize_threading()
 
   g_insertion_state_mutex_id = sceKernelCreateMutex("insertion_state", 0, 0, 0);
 
-  g_content_id_mutex_id = sceKernelCreateMutex("g_content_id", 0, 0, 0);
+  g_content_id_mutex_id = sceKernelCreateMutex("content_id", 0, 0, 0);
+
+  g_dump_state_poll_running_state_mutex_id = sceKernelCreateMutex("dump_state_poll_running_state", 0, 0, 0);
+
+  g_total_sectors_mutex_id = sceKernelCreateMutex("total_sectors_mutex", 0, 0, 0);
+  
+  g_progress_sectors_mutex_id = sceKernelCreateMutex("progress_sectors_mutex", 0, 0, 0);
 
   g_ctrl_thread_id = sceKernelCreateThread("ctrl", main_ctrl_loop, 0x40, 0x1000, 0, 0, 0);
 
@@ -993,25 +1193,49 @@ int initialize_threading()
 
 int deinitialize_threading()
 {
+  //deinitialize dump status poll thread if last dump status poll was successfull
+  //if it was canceled - it will be already deinitialized
+  deinitialize_dump_status_poll_threading();
+
   sceKernelDeleteMutex(g_app_running_mutex_id);
+  g_app_running_mutex_id = -1;
 
   sceKernelDeleteMutex(g_redraw_request_mutex_id);
+  g_redraw_request_mutex_id = -1;
 
   sceKernelDeleteMutex(g_file_position_mutex_id);
+  g_file_position_mutex_id = -1;
 
   sceKernelDeleteMutex(g_max_file_position_mutex_id);
+  g_max_file_position_mutex_id = -1;
 
   sceKernelDeleteMutex(g_selected_iso_mutex_id);
+  g_selected_iso_mutex_id = -1;
 
   sceKernelDeleteMutex(g_insertion_state_mutex_id);
+  g_insertion_state_mutex_id = -1;
 
   sceKernelDeleteMutex(g_content_id_mutex_id);
+  g_content_id_mutex_id = -1;
 
-  int waitRet = 0;
-  sceKernelWaitThreadEnd(g_ctrl_thread_id, &waitRet, 0);
+  sceKernelDeleteMutex(g_dump_state_poll_running_state_mutex_id);
+  g_dump_state_poll_running_state_mutex_id = -1;
 
-  sceKernelDeleteThread(g_ctrl_thread_id);
+  sceKernelDeleteMutex(g_total_sectors_mutex_id);
+  g_total_sectors_mutex_id = -1;
 
+  sceKernelDeleteMutex(g_progress_sectors_mutex_id);
+  g_progress_sectors_mutex_id = -1;
+
+  if(g_ctrl_thread_id >= 0)
+  {
+    int waitRet = 0;
+    sceKernelWaitThreadEnd(g_ctrl_thread_id, &waitRet, 0);
+  
+    sceKernelDeleteThread(g_ctrl_thread_id);
+    g_ctrl_thread_id = -1;
+  }
+  
   return 0;
 }
 
@@ -1038,6 +1262,10 @@ int set_default_state()
   set_insertion_state(INSERTION_STATE_REMOVED);
 
   clear_content_id();
+
+  set_dump_state_poll_running_state(DUMP_STATE_POLL_STOP);
+  set_total_sectors(0);
+  set_progress_sectors(0);
 }
 
 int main(int argc, char *argv[]) 
