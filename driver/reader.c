@@ -276,13 +276,18 @@ int deinitialize_read_threading()
     ksceKernelWaitThreadEnd(readThreadId, &waitRet, 0);
     
     int delret = ksceKernelDeleteThread(readThreadId);
+    readThreadId = -1;
   }
 
   sceKernelDeleteCondForDriver(req_cond);
+  req_cond = -1;
   sceKernelDeleteCondForDriver(resp_cond);
+  resp_cond = -1;
 
   ksceKernelDeleteMutex(req_lock);
+  req_lock = -1;
   ksceKernelDeleteMutex(resp_lock);
+  resp_lock = -1;
 
   return 0;
 }

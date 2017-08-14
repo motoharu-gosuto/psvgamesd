@@ -148,3 +148,13 @@ int dump_mmc_card_cancel()
 
   return 0;
 }
+
+uint32_t dump_mmc_get_total_sectors()
+{
+  return get_total_sectors();
+}
+
+uint32_t dump_mmc_get_progress_sectors()
+{
+  return get_progress_sectors();
+}

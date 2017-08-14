@@ -38,23 +38,104 @@ char g_dump_path[256] = {0};
 
 //---------------
 
+SceUID g_total_sectors_mutex_id = -1;
+
+uint32_t g_total_sectors = 0;
+
+uint32_t get_total_sectors()
+{
+  ksceKernelLockMutex(g_total_sectors_mutex_id, 1, 0);
+  uint32_t temp = g_total_sectors;
+  ksceKernelUnlockMutex(g_total_sectors_mutex_id, 1);
+  return temp;
+}
+
+void set_total_sectors(uint32_t value)
+{
+  ksceKernelLockMutex(g_total_sectors_mutex_id, 1, 0);
+  g_total_sectors = value;
+  ksceKernelUnlockMutex(g_total_sectors_mutex_id, 1);
+}
+
+//---------------
+
+SceUID g_progress_sectors_mutex_id = -1;
+
+uint32_t g_progress_sectors = 0;
+
+uint32_t get_progress_sectors()
+{
+  ksceKernelLockMutex(g_progress_sectors_mutex_id, 1, 0);
+  uint32_t temp = g_progress_sectors;
+  ksceKernelUnlockMutex(g_progress_sectors_mutex_id, 1);
+  return temp;
+}
+
+void set_progress_sectors(uint32_t value)
+{
+  ksceKernelLockMutex(g_progress_sectors_mutex_id, 1, 0);
+  g_progress_sectors = value;
+  ksceKernelUnlockMutex(g_progress_sectors_mutex_id, 1);
+}
+
+//---------------
+
+SceUID g_running_state_mutex_id = -1;
+
+uint32_t g_running_state = 0;
+
+uint32_t get_running_state()
+{
+  ksceKernelLockMutex(g_running_state_mutex_id, 1, 0);
+  uint32_t temp = g_running_state;
+  ksceKernelUnlockMutex(g_running_state_mutex_id, 1);
+  return temp;
+}
+
+void set_running_state(uint32_t value)
+{
+  ksceKernelLockMutex(g_running_state_mutex_id, 1, 0);
+  g_running_state = value;
+  ksceKernelUnlockMutex(g_running_state_mutex_id, 1);
+}
+
+//---------------
+
 //number of blocks per copy operation
 #define DUMP_BLOCK_SIZE 0x10
+
+#define DUMP_BLOCK_TICK_SIZE 0x1000
 
 char dump_buffer[SD_DEFAULT_SECTOR_SIZE * DUMP_BLOCK_SIZE];
 
 int dump_img(SceUID dev_fd, SceUID out_fd, const MBR* dump_mbr)
 {
+  set_total_sectors(dump_mbr->sizeInBlocks);
+  set_progress_sectors(0);
+
   //dump sectors - main part
   SceSize nBlocks = dump_mbr->sizeInBlocks / DUMP_BLOCK_SIZE;
   for(int i = 0; i < nBlocks; i++)
   {
-    if((i % 0x1000) == 0)
+    if((i % DUMP_BLOCK_TICK_SIZE) == 0)
     {
       snprintf(sprintfBuffer, 256, "%x from %x\n", i, nBlocks);
       FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
 
+      //make sure vita does not go to sleep
       ksceKernelPowerTick(SCE_KERNEL_POWER_TICK_DISABLE_AUTO_SUSPEND);
+
+      //report number of sectors that are dumped
+      set_progress_sectors(i * DUMP_BLOCK_SIZE);
+
+      //check dump cancel request 
+      //maybe it can be done on each iteration
+      //but I think it will be slow
+      uint32_t rn_state = get_running_state();
+      if(rn_state == DUMP_STATE_STOP)
+      {
+        return 0;
+      }
     }
 
     ksceIoRead(dev_fd, dump_buffer, SD_DEFAULT_SECTOR_SIZE * DUMP_BLOCK_SIZE);
@@ -70,6 +151,9 @@ int dump_img(SceUID dev_fd, SceUID out_fd, const MBR* dump_mbr)
 
     ksceIoWrite(out_fd, dump_buffer, SD_DEFAULT_SECTOR_SIZE * nTail);
   }
+
+  //report number of sectors that are dumped
+  set_progress_sectors(dump_mbr->sizeInBlocks);
 
   return 0;
 }
@@ -118,15 +202,13 @@ int dump_core(SceUID dev_fd, SceUID out_fd)
   dump_header(dev_fd, out_fd, &dump_mbr);
 
   //dump image itself
-  //dump_img(dev_fd, out_fd, &dump_mbr);
+  dump_img(dev_fd, out_fd, &dump_mbr);
 
   return 0;
 }
 
-int dump_thread(SceSize args, void* argp)
+int dump_thread_internal(SceSize args, void* argp)
 {
-  FILE_GLOBAL_WRITE_LEN("Started Dump Thread\n");
-
   dump_args* da = (dump_args*)argp;
   if(da <= 0)
   {
@@ -157,13 +239,44 @@ int dump_thread(SceSize args, void* argp)
 
   dump_core(dev_fd, out_fd);
 
-  FILE_GLOBAL_WRITE_LEN("Dump finished\n");
-
   ksceIoClose(out_fd);
   ksceIoClose(dev_fd);
-  
+
+  return 0;
+}
+
+int dump_thread(SceSize args, void* argp)
+{
+  FILE_GLOBAL_WRITE_LEN("Started Dump Thread\n");
+
+  //indicate that dumping process has started
+  set_running_state(DUMP_STATE_START);
+
+  dump_thread_internal(args, argp);
+
+  //indicate that dumping process has finished
+  set_running_state(DUMP_STATE_STOP);
+
+  FILE_GLOBAL_WRITE_LEN("Dump finished\n");
+
   return 0;
 } 
+
+int deinitialize_dump_thread()
+{
+  //wait till thread finishes and do a cleanup
+
+  if(g_dumpThreadId >= 0)
+  {  
+    int waitRet = 0;
+    ksceKernelWaitThreadEnd(g_dumpThreadId, &waitRet, 0);
+    
+    int delret = ksceKernelDeleteThread(g_dumpThreadId);
+    g_dumpThreadId = -1; 
+  }
+
+  return 0;
+}
 
 dump_args da_inst;
 char da_inst_dump_path[256] = {0};
@@ -176,42 +289,56 @@ int handle_dump_request(int dump_state, const char* dump_path)
   {
     case DUMP_STATE_START:
     {
-      g_dumpThreadId = ksceKernelCreateThread("DumpThread", &dump_thread, 0x64, 0x10000, 0, 0, 0);
-      
-      if(g_dumpThreadId >= 0)
+      //dont allow to enter dumping state if already dumping
+
+      uint32_t rn_state = get_running_state();
+
+      if(rn_state != DUMP_STATE_START)
       {
-        FILE_GLOBAL_WRITE_LEN("Created Dump Thread\n");
+        //if previous dump operation was not canceled - dump thread will not be deinitialized
+        deinitialize_dump_thread();
 
-        snprintf(sprintfBuffer, 256, "path %s\n", dump_path);
-        FILE_GLOBAL_WRITE_LEN(sprintfBuffer);     
+        g_dumpThreadId = ksceKernelCreateThread("DumpThread", &dump_thread, 0x64, 0x10000, 0, 0, 0);
+        
+        if(g_dumpThreadId >= 0)
+        {
+          FILE_GLOBAL_WRITE_LEN("Created Dump Thread\n");
 
-        //copying the path to yet another variable to be able to clear g_dump_path that is used for requests
-        memset(da_inst_dump_path, 0, 256);
-        strncpy(da_inst_dump_path, dump_path, 256);
-        da_inst.dump_path = da_inst_dump_path;
+          snprintf(sprintfBuffer, 256, "path %s\n", dump_path);
+          FILE_GLOBAL_WRITE_LEN(sprintfBuffer);     
 
-        int res = ksceKernelStartThread(g_dumpThreadId, sizeof(dump_args), &da_inst);
-      }
-      else
-      {
-        snprintf(sprintfBuffer, 256, "Failed to create Dump Thread: %x\n", g_dumpThreadId);
-        FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
+          //copying the path to yet another variable to be able to clear g_dump_path that is used for requests
+          memset(da_inst_dump_path, 0, 256);
+          strncpy(da_inst_dump_path, dump_path, 256);
+          da_inst.dump_path = da_inst_dump_path;
+
+          int res = ksceKernelStartThread(g_dumpThreadId, sizeof(dump_args), &da_inst);
+        }
+        else
+        {
+          snprintf(sprintfBuffer, 256, "Failed to create Dump Thread: %x\n", g_dumpThreadId);
+          FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
+        }
       }
 
       break;
     }
     case DUMP_STATE_STOP:
     {
-      //TODO: need to implement cancel functionality
-      /*
-      if(g_dumpThreadId >= 0)
+      //dont allow to enter cancel state if not yet dumping
+
+      uint32_t rn_state = get_running_state();
+
+      if(rn_state != DUMP_STATE_STOP)
       {
-        int waitRet = 0;
-        ksceKernelWaitThreadEnd(g_dumpThreadId, &waitRet, 0);
-        
-        int delret = ksceKernelDeleteThread(g_dumpThreadId);
+        //indicate that we are entering cancel state (this will stop dumping thread)
+        set_running_state(DUMP_STATE_STOP);
+
+        deinitialize_dump_thread();
+
+        FILE_GLOBAL_WRITE_LEN("Dump canceled\n");
       }
-      */
+
       break;
     }
     default:
@@ -265,6 +392,18 @@ int dump_poll_thread(SceSize args, void* argp)
 
 int initialize_dump_threading()
 {
+  g_total_sectors_mutex_id = ksceKernelCreateMutex("total_sectors_mutex", 0, 0, 0);
+  if(g_total_sectors_mutex_id >= 0)
+    FILE_GLOBAL_WRITE_LEN("Created g_total_sectors_mutex\n");
+
+  g_progress_sectors_mutex_id = ksceKernelCreateMutex("progress_sectors_mutex", 0, 0, 0);
+  if(g_progress_sectors_mutex_id >= 0)
+    FILE_GLOBAL_WRITE_LEN("Created g_progress_sectors_mutex\n");
+
+  g_running_state_mutex_id = ksceKernelCreateMutex("running_state_mutex", 0, 0, 0);
+  if(g_running_state_mutex_id >= 0)
+    FILE_GLOBAL_WRITE_LEN("Created g_running_state_mutex\n");
+
   dump_req_lock = ksceKernelCreateMutex("dump_req_lock", 0, 0, 0);
   if(dump_req_lock >= 0)
     FILE_GLOBAL_WRITE_LEN("Created dump_req_lock\n");
@@ -300,19 +439,33 @@ int initialize_dump_threading()
 
 int deinitialize_dump_threading()
 {
+  deinitialize_dump_thread();
+
   if(g_dumpPollThreadId >= 0)
   {
     int waitRet = 0;
     ksceKernelWaitThreadEnd(g_dumpPollThreadId, &waitRet, 0);
     
     int delret = ksceKernelDeleteThread(g_dumpPollThreadId);
+    g_dumpPollThreadId = -1;
   }
 
   sceKernelDeleteCondForDriver(dump_req_cond);
+  dump_req_cond = -1;
   sceKernelDeleteCondForDriver(dump_resp_cond);
+  dump_resp_cond = -1;
 
   ksceKernelDeleteMutex(dump_req_lock);
+  dump_req_lock = -1;
   ksceKernelDeleteMutex(dump_resp_lock);
+  dump_resp_lock = -1;
+
+  ksceKernelDeleteMutex(g_total_sectors_mutex_id);
+  g_total_sectors_mutex_id = -1;
+  ksceKernelDeleteMutex(g_progress_sectors_mutex_id);
+  g_progress_sectors_mutex_id = -1;
+  ksceKernelDeleteMutex(g_running_state_mutex_id);
+  g_running_state_mutex_id = -1;
 
   return 0;
 }

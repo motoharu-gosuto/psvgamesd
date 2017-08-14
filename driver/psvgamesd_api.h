@@ -1,5 +1,7 @@
 #pragma once
 
+#include <stdint.h>
+
 int set_iso_path(const char* path);
 
 int clear_iso_path();
@@ -27,3 +29,7 @@ int deinitialize_virtual_sd();
 int dump_mmc_card_start(const char* path);
 
 int dump_mmc_card_cancel();
+
+uint32_t dump_mmc_get_total_sectors();
+
+uint32_t dump_mmc_get_progress_sectors();

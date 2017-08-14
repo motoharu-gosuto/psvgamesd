@@ -24,3 +24,5 @@ psvgamesd:
         - deinitialize_virtual_sd
         - dump_mmc_card_start
         - dump_mmc_card_cancel
+        - dump_mmc_get_total_sectors
+        - dump_mmc_get_progress_sectors
