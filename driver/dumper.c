@@ -225,7 +225,7 @@ int dump_thread_internal(SceSize args, void* argp)
 
   FILE_GLOBAL_WRITE_LEN("Opened sd dev\n");
 
-  SceUID out_fd = ksceIoOpen(da->dump_path, SCE_O_CREAT | SCE_O_APPEND | SCE_O_WRONLY, 0777);
+  SceUID out_fd = ksceIoOpen(da->dump_path, SCE_O_CREAT | SCE_O_TRUNC | SCE_O_WRONLY, 0777);
 
   if(out_fd < 0)
   {
@@ -262,6 +262,36 @@ int dump_thread(SceSize args, void* argp)
   return 0;
 } 
 
+dump_args da_inst;
+char da_inst_dump_path[256] = {0};
+
+int initialize_dump_thread(const char* dump_path)
+{
+  g_dumpThreadId = ksceKernelCreateThread("DumpThread", &dump_thread, 0x64, 0x10000, 0, 0, 0);
+  
+  if(g_dumpThreadId >= 0)
+  {
+    FILE_GLOBAL_WRITE_LEN("Created Dump Thread\n");
+
+    snprintf(sprintfBuffer, 256, "path %s\n", dump_path);
+    FILE_GLOBAL_WRITE_LEN(sprintfBuffer);     
+
+    //copying the path to yet another variable to be able to clear g_dump_path that is used for requests
+    memset(da_inst_dump_path, 0, 256);
+    strncpy(da_inst_dump_path, dump_path, 256);
+    da_inst.dump_path = da_inst_dump_path;
+
+    int res = ksceKernelStartThread(g_dumpThreadId, sizeof(dump_args), &da_inst);
+  }
+  else
+  {
+    snprintf(sprintfBuffer, 256, "Failed to create Dump Thread: %x\n", g_dumpThreadId);
+    FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
+  }
+
+  return 0;
+}
+
 int deinitialize_dump_thread()
 {
   //wait till thread finishes and do a cleanup
@@ -277,9 +307,6 @@ int deinitialize_dump_thread()
 
   return 0;
 }
-
-dump_args da_inst;
-char da_inst_dump_path[256] = {0};
 
 int handle_dump_request(int dump_state, const char* dump_path)
 {
@@ -298,27 +325,7 @@ int handle_dump_request(int dump_state, const char* dump_path)
         //if previous dump operation was not canceled - dump thread will not be deinitialized
         deinitialize_dump_thread();
 
-        g_dumpThreadId = ksceKernelCreateThread("DumpThread", &dump_thread, 0x64, 0x10000, 0, 0, 0);
-        
-        if(g_dumpThreadId >= 0)
-        {
-          FILE_GLOBAL_WRITE_LEN("Created Dump Thread\n");
-
-          snprintf(sprintfBuffer, 256, "path %s\n", dump_path);
-          FILE_GLOBAL_WRITE_LEN(sprintfBuffer);     
-
-          //copying the path to yet another variable to be able to clear g_dump_path that is used for requests
-          memset(da_inst_dump_path, 0, 256);
-          strncpy(da_inst_dump_path, dump_path, 256);
-          da_inst.dump_path = da_inst_dump_path;
-
-          int res = ksceKernelStartThread(g_dumpThreadId, sizeof(dump_args), &da_inst);
-        }
-        else
-        {
-          snprintf(sprintfBuffer, 256, "Failed to create Dump Thread: %x\n", g_dumpThreadId);
-          FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
-        }
+        initialize_dump_thread(dump_path);
       }
 
       break;
@@ -439,6 +446,8 @@ int initialize_dump_threading()
 
 int deinitialize_dump_threading()
 {
+  //deinitialize dump thread if last dump was successfull
+  //if it was canceled - it will be already deinitialized
   deinitialize_dump_thread();
 
   if(g_dumpPollThreadId >= 0)
