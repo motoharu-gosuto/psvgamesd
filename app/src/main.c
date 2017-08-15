@@ -789,6 +789,9 @@ int SCE_CTRL_CIRCLE_callback()
 
 int dump_status_poll_thread_internal(SceSize args, void* argp)
 {
+  uint32_t prev_total_sectors = -1;
+  uint32_t prev_progress_sectors = -1;
+
   while(1)
   {
     //wait 1 second
@@ -802,9 +805,15 @@ int dump_status_poll_thread_internal(SceSize args, void* argp)
     set_total_sectors(total_sectors);
     set_progress_sectors(progress_sectors);
 
-    //redraw screen
-    set_redraw_request(1);
-
+    if(prev_total_sectors != total_sectors || prev_progress_sectors != progress_sectors)
+    {
+      //redraw screen
+      set_redraw_request(1);
+    }
+    
+    prev_total_sectors = total_sectors;
+    prev_progress_sectors = progress_sectors;
+    
     //check if cancel was requested
     uint32_t rn_state = get_dump_state_poll_running_state();
     if(rn_state == DUMP_STATE_POLL_STOP)
