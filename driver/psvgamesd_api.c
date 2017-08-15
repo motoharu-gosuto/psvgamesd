@@ -151,10 +151,20 @@ int dump_mmc_card_cancel()
 
 uint32_t dump_mmc_get_total_sectors()
 {
-  return get_total_sectors();
+  uint32_t value = get_total_sectors();
+
+  //snprintf(sprintfBuffer, 256, "dump_mmc_get_total_sectors %x\n", value);
+  //FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
+
+  return value;
 }
 
 uint32_t dump_mmc_get_progress_sectors()
 {
-  return get_progress_sectors();
+  uint32_t value = get_progress_sectors();
+
+  //snprintf(sprintfBuffer, 256, "dump_mmc_get_progress_sectors %x\n", value);
+  //FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
+
+  return value;
 }
