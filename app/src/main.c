@@ -504,6 +504,9 @@ int SCE_CTRL_UP_callback()
   uint32_t rn_state = get_dump_state_poll_running_state();
   if(rn_state != DUMP_STATE_POLL_START)
   {
+    //update max file position just in case new files were added to directory (for example during dump)
+    set_max_file_position(get_dir_max_file_pos(ISO_ROOT_DIRECTORY));
+
     sceKernelLockMutex(g_file_position_mutex_id, 1, 0);
     if(g_file_position > 0)
       g_file_position--;
@@ -524,6 +527,9 @@ int SCE_CTRL_DOWN_callback()
   uint32_t rn_state = get_dump_state_poll_running_state();
   if(rn_state != DUMP_STATE_POLL_START)
   {
+    //update max file position just in case new files were added to directory (for example during dump)
+    set_max_file_position(get_dir_max_file_pos(ISO_ROOT_DIRECTORY));
+    
     sceKernelLockMutex(g_file_position_mutex_id, 1, 0);
     if(g_file_position < get_max_file_position())
       g_file_position++;
