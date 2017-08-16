@@ -32,6 +32,7 @@ target_link_libraries(${SHORT_NAME}
   SceSysmodule_stub
   SceNetCtl_stub
   SceCtrl_stub
+  SceShellSvc_stub
   psvgamesd_stub
 )
 

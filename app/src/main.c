@@ -10,6 +10,7 @@
 #include <psp2/io/stat.h>
 #include <psp2/io/dirent.h>
 #include <psp2/io/fcntl.h>
+#include <psp2/shellutil.h>
 
 #include <psvgamesd_api.h>
 
@@ -38,6 +39,28 @@
 
 #define INSERTION_STATE_REMOVED 0
 #define INSERTION_STATE_INSERTED 1
+
+//---
+
+int lock_ps_btn = 0;
+
+void ps_btn_lock() 
+{
+   if (lock_ps_btn == 0)
+   {
+      int result = sceShellUtilLock(SCE_SHELL_UTIL_LOCK_TYPE_PS_BTN);
+      lock_ps_btn = 1;
+   }
+}
+
+void ps_btn_unlock() 
+{
+   if (lock_ps_btn == 1)
+   {
+      int result = sceShellUtilUnlock(SCE_SHELL_UTIL_LOCK_TYPE_PS_BTN);
+      lock_ps_btn = 0;
+   }
+}
 
 //---
 
@@ -529,7 +552,7 @@ int SCE_CTRL_DOWN_callback()
   {
     //update max file position just in case new files were added to directory (for example during dump)
     set_max_file_position(get_dir_max_file_pos(ISO_ROOT_DIRECTORY));
-    
+
     sceKernelLockMutex(g_file_position_mutex_id, 1, 0);
     if(g_file_position < get_max_file_position())
       g_file_position++;
@@ -1358,17 +1381,43 @@ int set_default_state()
   set_progress_sectors(0);
 }
 
+int save_state_to_kernel()
+{
+  return 0;
+}
+
+int load_state_from_kernel()
+{
+  return 0;
+}
+
 int main(int argc, char *argv[]) 
 {
   psvDebugScreenInit();
 
-  set_default_state();
+  sceShellUtilInitEvents(0);
+
+  //allow to exit only with triangle button - lock ps button
+  //this is requred because we need to save current state to kernel plugin upon exit
+  ps_btn_lock();
+
+  load_state_from_kernel();
+
+  //default state should be set only if we do
+  //not have previous state saved in kernel
+  //will need to introduce some flag for that
+  set_default_state(); 
 
   initialize_threading();
 
   main_draw_loop();
 
   deinitialize_threading();
+
+  save_state_to_kernel();
+
+  //unlock ps button back upon exit
+  ps_btn_unlock();
 
   sceKernelDelayThread(5*1000*1000);
 
