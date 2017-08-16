@@ -1089,17 +1089,27 @@ SceUInt64 time_diff(SceUInt64 old, SceUInt64 new)
     return new - old;
 }
 
+int get_color_from_poll_state(uint32_t rn_state, int active, int inactive)
+{
+  if(rn_state == DUMP_STATE_POLL_STOP)
+    return active;
+  else
+    return inactive;
+}
+
 int draw_dir(char* path)
 {
   psvDebugScreenClear(COLOR_BLACK);
 
   psvDebugScreenPrintf("\e[9%im welcome to psvgamesd\n", 7);
 
-  psvDebugScreenPrintf("\e[9%im directory: %s\n", 7, path);
+  uint32_t rn_state = get_dump_state_poll_running_state();
+
+  psvDebugScreenPrintf("\e[9%im directory: %s\n", get_color_from_poll_state(rn_state, 7, 0), path);
 
   char sel_driver_mode[256];
   driver_mode_to_name(get_driver_mode(), sel_driver_mode);
-  psvDebugScreenPrintf("\e[9%im driver mode: %s\n", 7, sel_driver_mode);
+  psvDebugScreenPrintf("\e[9%im driver mode: %s\n", get_color_from_poll_state(rn_state, 7, 0), sel_driver_mode);
 
   uint32_t d_mode = get_driver_mode();
 
@@ -1110,11 +1120,11 @@ int draw_dir(char* path)
 
     if(strnlen(cnt_id, SFO_MAX_STR_VALUE_LEN) > 0)
     {
-      psvDebugScreenPrintf("\e[9%im content id: %s\n", 7, cnt_id);
+      psvDebugScreenPrintf("\e[9%im content id: %s\n", get_color_from_poll_state(rn_state, 7, 0), cnt_id);
     }
     else
     {
-      psvDebugScreenPrintf("\e[9%im content id: %s\n", 7, "Game Card is not inserted");
+      psvDebugScreenPrintf("\e[9%im content id: %s\n", get_color_from_poll_state(rn_state, 7, 0), "Game Card is not inserted");
     }
   }
   else
@@ -1124,7 +1134,6 @@ int draw_dir(char* path)
 
   if(d_mode == DRIVER_MODE_PHYSICAL_MMC)
   {
-    uint32_t rn_state = get_dump_state_poll_running_state();
     if(rn_state == DUMP_STATE_POLL_START)
     {
       uint32_t total_sectors = get_total_sectors();
@@ -1134,7 +1143,7 @@ int draw_dir(char* path)
     }
     else
     {
-      psvDebugScreenPrintf("\e[9%im dump progress: %x | %x\n", 7, 0x0, 0x0);
+      psvDebugScreenPrintf("\e[9%im dump progress:\n", 0);
     }
   }
   else
@@ -1148,20 +1157,20 @@ int draw_dir(char* path)
     get_selected_iso(sel_iso);
     if(strnlen(sel_iso, 256) > 0)
     {
-      psvDebugScreenPrintf("\e[9%im selected iso: %s\n", 7, sel_iso);
+      psvDebugScreenPrintf("\e[9%im selected iso: %s\n", get_color_from_poll_state(rn_state, 7, 0), sel_iso);
 
       if(get_insertion_state() == INSERTION_STATE_INSERTED)
       {
-        psvDebugScreenPrintf("\e[9%im insertion state: %s\n", 7, "inserted");
+        psvDebugScreenPrintf("\e[9%im insertion state: %s\n", get_color_from_poll_state(rn_state, 7, 0), "inserted");
       }
       else
       {
-        psvDebugScreenPrintf("\e[9%im insertion state: %s\n", 7, "removed");
+        psvDebugScreenPrintf("\e[9%im insertion state: %s\n", get_color_from_poll_state(rn_state, 7, 0), "removed");
       }
     }
     else
     {
-      psvDebugScreenPrintf("\e[9%im selected iso:\n", 7);
+      psvDebugScreenPrintf("\e[9%im selected iso:\n", get_color_from_poll_state(rn_state, 7, 0));
       psvDebugScreenPrintf("\e[9%im insertion state:\n", 0);
     }
   }
@@ -1191,11 +1200,11 @@ int draw_dir(char* path)
         {
           if(cur_file_position == get_file_position())
           {
-            psvDebugScreenPrintf("\e[9%im %s\n", 2, dir.d_name);
+            psvDebugScreenPrintf("\e[9%im %s\n", get_color_from_poll_state(rn_state, 2, 0), dir.d_name);
           }
           else
           {
-            psvDebugScreenPrintf("\e[9%im %s\n", 7, dir.d_name);
+            psvDebugScreenPrintf("\e[9%im %s\n", get_color_from_poll_state(rn_state, 7, 0), dir.d_name);
           }
           
           cur_file_position++;
