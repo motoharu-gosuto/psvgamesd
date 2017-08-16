@@ -104,7 +104,8 @@ void set_running_state(uint32_t value)
 //number of blocks per copy operation
 #define DUMP_BLOCK_SIZE 0x10
 
-#define DUMP_BLOCK_TICK_SIZE 0x1000
+//#define DUMP_BLOCK_TICK_SIZE 0x1000
+#define DUMP_BLOCK_TICK_SIZE 0x100
 
 char dump_buffer[SD_DEFAULT_SECTOR_SIZE * DUMP_BLOCK_SIZE];
 
@@ -119,8 +120,8 @@ int dump_img(SceUID dev_fd, SceUID out_fd, const MBR* dump_mbr)
   {
     if((i % DUMP_BLOCK_TICK_SIZE) == 0)
     {
-      snprintf(sprintfBuffer, 256, "%x from %x\n", i, nBlocks);
-      FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
+      //snprintf(sprintfBuffer, 256, "%x from %x\n", i, nBlocks);
+      //FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
 
       //make sure vita does not go to sleep
       ksceKernelPowerTick(SCE_KERNEL_POWER_TICK_DISABLE_AUTO_SUSPEND);
@@ -134,6 +135,8 @@ int dump_img(SceUID dev_fd, SceUID out_fd, const MBR* dump_mbr)
       uint32_t rn_state = get_running_state();
       if(rn_state == DUMP_STATE_STOP)
       {
+        set_total_sectors(0);
+        set_progress_sectors(0);
         return 0;
       }
     }

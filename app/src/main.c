@@ -424,27 +424,32 @@ int SCE_CTRL_START_callback()
 {
   //psvDebugScreenPrintf("psvgamesd: SCE_CTRL_START\n");
 
-  //insertion only applies to virtual modes
-  uint32_t d_mode = get_driver_mode();
-  if(d_mode == DRIVER_MODE_VIRTUAL_MMC || d_mode == DRIVER_MODE_VIRTUAL_SD)
+  //forbid to press any buttons during dump except for square (which is cancel)
+  uint32_t rn_state = get_dump_state_poll_running_state();
+  if(rn_state != DUMP_STATE_POLL_START)
   {
-    //insertion only applies if iso is selected
-    char sel_iso[256];
-    get_selected_iso(sel_iso);
-    if(strnlen(sel_iso, 256) > 0)
+    //insertion only applies to virtual modes
+    uint32_t d_mode = get_driver_mode();
+    if(d_mode == DRIVER_MODE_VIRTUAL_MMC || d_mode == DRIVER_MODE_VIRTUAL_SD)
     {
-      //get prev state and set current state
-      uint32_t prev_state = get_insertion_state();
-
-      set_insertion_state(INSERTION_STATE_INSERTED);
-
-      //insert card only if state has changed
-      if(prev_state != get_insertion_state())
+      //insertion only applies if iso is selected
+      char sel_iso[256];
+      get_selected_iso(sel_iso);
+      if(strnlen(sel_iso, 256) > 0)
       {
-        insert_card();
+        //get prev state and set current state
+        uint32_t prev_state = get_insertion_state();
 
-        //redraw screen
-        set_redraw_request(1);
+        set_insertion_state(INSERTION_STATE_INSERTED);
+
+        //insert card only if state has changed
+        if(prev_state != get_insertion_state())
+        {
+          insert_card();
+
+          //redraw screen
+          set_redraw_request(1);
+        }
       }
     }
   }
@@ -457,27 +462,32 @@ int SCE_CTRL_SELECT_callback()
 {
   //psvDebugScreenPrintf("psvgamesd: SCE_CTRL_SELECT\n");
 
-  //insertion only applies to virtual modes
-  uint32_t d_mode = get_driver_mode();
-  if(d_mode == DRIVER_MODE_VIRTUAL_MMC || d_mode == DRIVER_MODE_VIRTUAL_SD)
+  //forbid to press any buttons during dump except for square (which is cancel)
+  uint32_t rn_state = get_dump_state_poll_running_state();
+  if(rn_state != DUMP_STATE_POLL_START)
   {
-    //insertion only applies if iso is selected
-    char sel_iso[256];
-    get_selected_iso(sel_iso);
-    if(strnlen(sel_iso, 256) > 0)
+    //insertion only applies to virtual modes
+    uint32_t d_mode = get_driver_mode();
+    if(d_mode == DRIVER_MODE_VIRTUAL_MMC || d_mode == DRIVER_MODE_VIRTUAL_SD)
     {
-      //get prev state and set current state
-      uint32_t prev_state = get_insertion_state();
-
-      set_insertion_state(INSERTION_STATE_REMOVED);
-
-      //insert card only if state has changed
-      if(prev_state != get_insertion_state())
+      //insertion only applies if iso is selected
+      char sel_iso[256];
+      get_selected_iso(sel_iso);
+      if(strnlen(sel_iso, 256) > 0)
       {
-        remove_card();
+        //get prev state and set current state
+        uint32_t prev_state = get_insertion_state();
 
-        //redraw screen
-        set_redraw_request(1);
+        set_insertion_state(INSERTION_STATE_REMOVED);
+
+        //insert card only if state has changed
+        if(prev_state != get_insertion_state())
+        {
+          remove_card();
+
+          //redraw screen
+          set_redraw_request(1);
+        }
       }
     }
   }
@@ -490,12 +500,17 @@ int SCE_CTRL_UP_callback()
 {
   //psvDebugScreenPrintf("psvgamesd: SCE_CTRL_UP\n");
 
-  sceKernelLockMutex(g_file_position_mutex_id, 1, 0);
-  if(g_file_position > 0)
-    g_file_position--;
-  sceKernelUnlockMutex(g_file_position_mutex_id, 1);
+  //forbid to press any buttons during dump except for square (which is cancel)
+  uint32_t rn_state = get_dump_state_poll_running_state();
+  if(rn_state != DUMP_STATE_POLL_START)
+  {
+    sceKernelLockMutex(g_file_position_mutex_id, 1, 0);
+    if(g_file_position > 0)
+      g_file_position--;
+    sceKernelUnlockMutex(g_file_position_mutex_id, 1);
 
-  set_redraw_request(1);
+    set_redraw_request(1);
+  }
 
   return 0;
 }
@@ -505,12 +520,17 @@ int SCE_CTRL_DOWN_callback()
 {
   //psvDebugScreenPrintf("psvgamesd: SCE_CTRL_DOWN\n");
 
-  sceKernelLockMutex(g_file_position_mutex_id, 1, 0);
-  if(g_file_position < get_max_file_position())
-    g_file_position++;
-  sceKernelUnlockMutex(g_file_position_mutex_id, 1);
+  //forbid to press any buttons during dump except for square (which is cancel)
+  uint32_t rn_state = get_dump_state_poll_running_state();
+  if(rn_state != DUMP_STATE_POLL_START)
+  {
+    sceKernelLockMutex(g_file_position_mutex_id, 1, 0);
+    if(g_file_position < get_max_file_position())
+      g_file_position++;
+    sceKernelUnlockMutex(g_file_position_mutex_id, 1);
 
-  set_redraw_request(1);
+    set_redraw_request(1);
+  }
 
   return 0;
 }
@@ -639,38 +659,43 @@ int SCE_CTRL_RIGHT_callback()
 {
   //psvDebugScreenPrintf("psvgamesd: SCE_CTRL_RIGHT\n");
 
-  uint32_t prev_driver_mode = get_driver_mode();
-
-  sceKernelLockMutex(g_driver_mode_mutex_id, 1, 0);
-
-  //check overflow condition
-  if(g_driver_mode == DRIVER_MODE_VIRTUAL_SD)
-    g_driver_mode = DRIVER_MODE_PHYSICAL_MMC;
-  else
-    g_driver_mode++;
-
-  //remove card and deselect iso if previous mode was virtual and card was inserted
-  if((prev_driver_mode == DRIVER_MODE_VIRTUAL_MMC) || (prev_driver_mode == DRIVER_MODE_VIRTUAL_SD))
+  //forbid to press any buttons during dump except for square (which is cancel)
+  uint32_t rn_state = get_dump_state_poll_running_state();
+  if(rn_state != DUMP_STATE_POLL_START)
   {
-    if(get_insertion_state() == INSERTION_STATE_INSERTED)
+    uint32_t prev_driver_mode = get_driver_mode();
+
+    sceKernelLockMutex(g_driver_mode_mutex_id, 1, 0);
+
+    //check overflow condition
+    if(g_driver_mode == DRIVER_MODE_VIRTUAL_SD)
+      g_driver_mode = DRIVER_MODE_PHYSICAL_MMC;
+    else
+      g_driver_mode++;
+
+    //remove card and deselect iso if previous mode was virtual and card was inserted
+    if((prev_driver_mode == DRIVER_MODE_VIRTUAL_MMC) || (prev_driver_mode == DRIVER_MODE_VIRTUAL_SD))
     {
-      set_insertion_state(INSERTION_STATE_REMOVED);
+      if(get_insertion_state() == INSERTION_STATE_INSERTED)
+      {
+        set_insertion_state(INSERTION_STATE_REMOVED);
+      }
+
+      clear_selected_iso();
     }
 
-    clear_selected_iso();
+    //clear current content id if previous driver mode was physical mmc
+    if(prev_driver_mode == DRIVER_MODE_PHYSICAL_MMC)
+    {
+      clear_content_id();
+    }
+
+    sceKernelUnlockMutex(g_driver_mode_mutex_id, 1);
+
+    select_driver_mode(prev_driver_mode, get_driver_mode());
+
+    set_redraw_request(1);
   }
-
-  //clear current content id if previous driver mode was physical mmc
-  if(prev_driver_mode == DRIVER_MODE_PHYSICAL_MMC)
-  {
-    clear_content_id();
-  }
-
-  sceKernelUnlockMutex(g_driver_mode_mutex_id, 1);
-
-  select_driver_mode(prev_driver_mode, get_driver_mode());
-
-  set_redraw_request(1);
 
   return 0;
 }
@@ -680,51 +705,70 @@ int SCE_CTRL_LEFT_callback()
 {
   //psvDebugScreenPrintf("psvgamesd: SCE_CTRL_LEFT\n");
 
-  uint32_t prev_driver_mode = get_driver_mode();
-
-  sceKernelLockMutex(g_driver_mode_mutex_id, 1, 0);
-
-  //check underflow condition
-  if(g_driver_mode == DRIVER_MODE_PHYSICAL_MMC)
-    g_driver_mode = DRIVER_MODE_VIRTUAL_SD;
-  else
-    g_driver_mode--;
-
-  //remove card and deselect iso if previous mode was virtual and card was inserted
-  if((prev_driver_mode == DRIVER_MODE_VIRTUAL_MMC) || (prev_driver_mode == DRIVER_MODE_VIRTUAL_SD))
+  //forbid to press any buttons during dump except for square (which is cancel)
+  uint32_t rn_state = get_dump_state_poll_running_state();
+  if(rn_state != DUMP_STATE_POLL_START)
   {
-    if(get_insertion_state() == INSERTION_STATE_INSERTED)
+    uint32_t prev_driver_mode = get_driver_mode();
+
+    sceKernelLockMutex(g_driver_mode_mutex_id, 1, 0);
+
+    //check underflow condition
+    if(g_driver_mode == DRIVER_MODE_PHYSICAL_MMC)
+      g_driver_mode = DRIVER_MODE_VIRTUAL_SD;
+    else
+      g_driver_mode--;
+
+    //remove card and deselect iso if previous mode was virtual and card was inserted
+    if((prev_driver_mode == DRIVER_MODE_VIRTUAL_MMC) || (prev_driver_mode == DRIVER_MODE_VIRTUAL_SD))
     {
-      set_insertion_state(INSERTION_STATE_REMOVED);
+      if(get_insertion_state() == INSERTION_STATE_INSERTED)
+      {
+        set_insertion_state(INSERTION_STATE_REMOVED);
+      }
+
+      clear_selected_iso();
     }
 
-    clear_selected_iso();
+    //clear current content id if previous driver mode was physical mmc
+    if(prev_driver_mode == DRIVER_MODE_PHYSICAL_MMC)
+    {
+      clear_content_id();
+    }
+
+    sceKernelUnlockMutex(g_driver_mode_mutex_id, 1);
+
+    select_driver_mode(prev_driver_mode, get_driver_mode());
+
+    set_redraw_request(1);
   }
-
-  //clear current content id if previous driver mode was physical mmc
-  if(prev_driver_mode == DRIVER_MODE_PHYSICAL_MMC)
-  {
-    clear_content_id();
-  }
-
-  sceKernelUnlockMutex(g_driver_mode_mutex_id, 1);
-
-  select_driver_mode(prev_driver_mode, get_driver_mode());
-
-  set_redraw_request(1);
 
   return 0;
 }
 
 int SCE_CTRL_LTRIGGER_callback()
 {
-  psvDebugScreenPrintf("psvgamesd: SCE_CTRL_LTRIGGER\n");
+  //psvDebugScreenPrintf("psvgamesd: SCE_CTRL_LTRIGGER\n");
+
+  //forbid to press any buttons during dump except for square (which is cancel)
+  uint32_t rn_state = get_dump_state_poll_running_state();
+  if(rn_state != DUMP_STATE_POLL_START)
+  {
+  }
+
   return 0;
 }
 
 int SCE_CTRL_RTRIGGER_callback()
 {
-  psvDebugScreenPrintf("psvgamesd: SCE_CTRL_RTRIGGER\n");
+  //psvDebugScreenPrintf("psvgamesd: SCE_CTRL_RTRIGGER\n");
+
+  //forbid to press any buttons during dump except for square (which is cancel)
+  uint32_t rn_state = get_dump_state_poll_running_state();
+  if(rn_state != DUMP_STATE_POLL_START)
+  {
+  }
+
   return 0;
 }
 
@@ -733,7 +777,12 @@ int SCE_CTRL_TRIANGLE_callback()
 {
   //psvDebugScreenPrintf("psvgamesd: SCE_CTRL_TRIANGLE\n");
 
-  set_app_running(0);
+  //forbid to press any buttons during dump except for square (which is cancel)
+  uint32_t rn_state = get_dump_state_poll_running_state();
+  if(rn_state != DUMP_STATE_POLL_START)
+  {
+    set_app_running(0);
+  }
 
   return 0;
 }
@@ -743,43 +792,48 @@ int SCE_CTRL_CIRCLE_callback()
 {
   //psvDebugScreenPrintf("psvgamesd: SCE_CTRL_CIRCLE\n");
 
-  //iso execution only applies to virtual mode
-  uint32_t d_mode = get_driver_mode();
-  if((d_mode == DRIVER_MODE_VIRTUAL_MMC) || (d_mode == DRIVER_MODE_VIRTUAL_SD))
+  //forbid to press any buttons during dump except for square (which is cancel)
+  uint32_t rn_state = get_dump_state_poll_running_state();
+  if(rn_state != DUMP_STATE_POLL_START)
   {
-    //get currently selected iso
-    char filepath[256];
-    int found = get_dir_filename_at_pos(g_current_directory, get_file_position(), filepath);
-    if(found >= 0)
+    //iso execution only applies to virtual mode
+    uint32_t d_mode = get_driver_mode();
+    if((d_mode == DRIVER_MODE_VIRTUAL_MMC) || (d_mode == DRIVER_MODE_VIRTUAL_SD))
     {
-      //get previous iso and set new iso
-      char prev_iso[256];
-      get_selected_iso(prev_iso);
-
-      set_selected_iso(filepath);
-      
-      //check if selection has changed
-      if(strncmp(prev_iso, filepath, 256) != 0)
+      //get currently selected iso
+      char filepath[256];
+      int found = get_dir_filename_at_pos(g_current_directory, get_file_position(), filepath);
+      if(found >= 0)
       {
-        //remove previous card if it was inserted
-        if(get_insertion_state() == INSERTION_STATE_INSERTED)
+        //get previous iso and set new iso
+        char prev_iso[256];
+        get_selected_iso(prev_iso);
+
+        set_selected_iso(filepath);
+        
+        //check if selection has changed
+        if(strncmp(prev_iso, filepath, 256) != 0)
         {
-          set_insertion_state(INSERTION_STATE_REMOVED);
+          //remove previous card if it was inserted
+          if(get_insertion_state() == INSERTION_STATE_INSERTED)
+          {
+            set_insertion_state(INSERTION_STATE_REMOVED);
 
-          remove_card();
+            remove_card();
+          }
+
+          //construct path to new iso
+          char full_path[256];
+          memset(full_path, 0, 256);
+          strncpy(full_path, g_current_directory, 256);
+          strncat(full_path, "/", 256);
+          strncat(full_path, filepath, 256);
+
+          set_iso_path(full_path);
+
+          //redraw screen
+          set_redraw_request(1);
         }
-
-        //construct path to new iso
-        char full_path[256];
-        memset(full_path, 0, 256);
-        strncpy(full_path, g_current_directory, 256);
-        strncat(full_path, "/", 256);
-        strncat(full_path, filepath, 256);
-
-        set_iso_path(full_path);
-
-        //redraw screen
-        set_redraw_request(1);
       }
     }
   }
@@ -818,6 +872,8 @@ int dump_status_poll_thread_internal(SceSize args, void* argp)
     uint32_t rn_state = get_dump_state_poll_running_state();
     if(rn_state == DUMP_STATE_POLL_STOP)
     {
+      set_total_sectors(0);
+      set_progress_sectors(0);
       return 0;
     }
   }
@@ -866,52 +922,57 @@ int SCE_CTRL_CROSS_callback()
 {
   //psvDebugScreenPrintf("psvgamesd: SCE_CTRL_CROSS\n");
 
-  uint32_t d_mode = get_driver_mode();
-
-  // dumping is only allowed in physical mmc mode
-  if(d_mode == DRIVER_MODE_PHYSICAL_MMC)
+  //forbid to press any buttons during dump except for square (which is cancel)
+  uint32_t rn_state = get_dump_state_poll_running_state();
+  if(rn_state != DUMP_STATE_POLL_START)
   {
-    uint32_t rn_state = get_dump_state_poll_running_state();
+    uint32_t d_mode = get_driver_mode();
 
-    //dont allow to enter dump status polling state if already polling
-    if(rn_state != DUMP_STATE_POLL_START)
+    // dumping is only allowed in physical mmc mode
+    if(d_mode == DRIVER_MODE_PHYSICAL_MMC)
     {
-      char cnt_id[SFO_MAX_STR_VALUE_LEN];
-      int res = get_current_content_id_internal(cnt_id);
-      if(res >= 0)
+      uint32_t rn_state = get_dump_state_poll_running_state();
+
+      //dont allow to enter dump status polling state if already polling
+      if(rn_state != DUMP_STATE_POLL_START)
       {
-        //save new content id
-        set_content_id(cnt_id);
+        char cnt_id[SFO_MAX_STR_VALUE_LEN];
+        int res = get_current_content_id_internal(cnt_id);
+        if(res >= 0)
+        {
+          //save new content id
+          set_content_id(cnt_id);
 
-        //start dumping the card - this will start new thread in kernel
-        char full_path[256];
-        strncpy(full_path, g_current_directory, 256);
-        strncat(full_path, "/", 256);
-        strncat(full_path, cnt_id, 256);
-        strncat(full_path, ".psv", 256);
+          //start dumping the card - this will start new thread in kernel
+          char full_path[256];
+          strncpy(full_path, g_current_directory, 256);
+          strncat(full_path, "/", 256);
+          strncat(full_path, cnt_id, 256);
+          strncat(full_path, ".psv", 256);
+          
+          //start dump process in kernel
+          dump_mmc_card_start(full_path);
+
+          //redraw screen
+          set_redraw_request(1);
+
+          //start polling only after redraw request
+          //since thread will be requesting redraw as well
+          
+          //if previous dump status poll operation was not canceled - status poll thread will not be deinitialized
+          deinitialize_dump_status_poll_threading();
         
-        //start dump process in kernel
-        dump_mmc_card_start(full_path);
+          //initialize new thread
+          initialize_dump_status_poll_threading();
+        }
+        else
+        {
+          //clear current id
+          clear_content_id();
 
-        //redraw screen
-        set_redraw_request(1);
-
-        //start polling only after redraw request
-        //since thread will be requesting redraw as well
-        
-        //if previous dump status poll operation was not canceled - status poll thread will not be deinitialized
-        deinitialize_dump_status_poll_threading();
-      
-        //initialize new thread
-        initialize_dump_status_poll_threading();
-      }
-      else
-      {
-        //clear current id
-        clear_content_id();
-
-        //redraw screen
-        set_redraw_request(1);
+          //redraw screen
+          set_redraw_request(1);
+        }
       }
     }
   }
@@ -923,28 +984,33 @@ int SCE_CTRL_SQUARE_callback()
 {
   //psvDebugScreenPrintf("psvgamesd: SCE_CTRL_SQUARE\n");
 
-  uint32_t d_mode = get_driver_mode();
-  
-  // dumping is only allowed in physical mmc mode
-  if(d_mode == DRIVER_MODE_PHYSICAL_MMC)
+  //forbid to press square (dump cancel) when not in the process of dumping
+  uint32_t rn_state = get_dump_state_poll_running_state();
+  if(rn_state != DUMP_STATE_POLL_STOP)
   {
-    uint32_t rn_state = get_dump_state_poll_running_state();
-   
-    //dont allow to enter cancel state if not yet polling
-    if(rn_state != DUMP_STATE_POLL_STOP)
+    uint32_t d_mode = get_driver_mode();
+    
+    // dumping is only allowed in physical mmc mode
+    if(d_mode == DRIVER_MODE_PHYSICAL_MMC)
     {
-      //stop dump process in kernel
-      dump_mmc_card_cancel();
+      uint32_t rn_state = get_dump_state_poll_running_state();
+    
+      //dont allow to enter cancel state if not yet polling
+      if(rn_state != DUMP_STATE_POLL_STOP)
+      {
+        //stop dump process in kernel
+        dump_mmc_card_cancel();
 
-      //redraw screen
-      set_redraw_request(1);
+        //redraw screen
+        set_redraw_request(1);
 
-      //stop polling dump state
+        //stop polling dump state
 
-      //indicate that we are entering cancel state (this will stop polling thread)
-      set_dump_state_poll_running_state(DUMP_STATE_POLL_STOP);
+        //indicate that we are entering cancel state (this will stop polling thread)
+        set_dump_state_poll_running_state(DUMP_STATE_POLL_STOP);
 
-      deinitialize_dump_status_poll_threading();
+        deinitialize_dump_status_poll_threading();
+      }
     }
   }
 
