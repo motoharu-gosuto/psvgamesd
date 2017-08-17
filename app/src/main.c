@@ -903,6 +903,18 @@ int dump_status_poll_thread_internal(SceSize args, void* argp)
     {
       set_total_sectors(0);
       set_progress_sectors(0);
+
+      set_redraw_request(1);
+      return 0;
+    }
+
+    //check if dump has finished
+    if(total_sectors == progress_sectors)
+    {
+      set_total_sectors(0);
+      set_progress_sectors(0);
+
+      set_redraw_request(1);
       return 0;
     }
   }
