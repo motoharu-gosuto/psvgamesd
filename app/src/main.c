@@ -442,6 +442,27 @@ void set_progress_sectors(uint32_t value)
 
 //---
 
+SceUID g_physical_ins_state_mutex_id = -1;
+
+uint32_t g_physical_ins_state = 0;
+
+uint32_t get_physical_ins_state()
+{
+  sceKernelLockMutex(g_physical_ins_state_mutex_id, 1, 0);
+  uint32_t temp = g_physical_ins_state;
+  sceKernelUnlockMutex(g_physical_ins_state_mutex_id, 1);
+  return temp;
+}
+
+void set_physical_ins_state(uint32_t value)
+{
+  sceKernelLockMutex(g_physical_ins_state_mutex_id, 1, 0);
+  g_physical_ins_state = value;
+  sceKernelUnlockMutex(g_physical_ins_state_mutex_id, 1);
+}
+
+//---
+
 //insert iso
 int SCE_CTRL_START_callback()
 {
@@ -694,36 +715,38 @@ int SCE_CTRL_RIGHT_callback()
   {
     uint32_t prev_driver_mode = get_driver_mode();
 
-    sceKernelLockMutex(g_driver_mode_mutex_id, 1, 0);
+    int phys_ins_state = get_physical_ins_state();
 
-    //check overflow condition
-    if(g_driver_mode == DRIVER_MODE_VIRTUAL_SD)
-      g_driver_mode = DRIVER_MODE_PHYSICAL_MMC;
-    else
-      g_driver_mode++;
-
-    //remove card and deselect iso if previous mode was virtual and card was inserted
-    if((prev_driver_mode == DRIVER_MODE_VIRTUAL_MMC) || (prev_driver_mode == DRIVER_MODE_VIRTUAL_SD))
+    //forbid swithing states when there is a game card physically inserted
+    //this should help to avoid potential conflicts when forgetting to remove physical card
+    //and trying to insert virtual card
+    if(!(prev_driver_mode == DRIVER_MODE_PHYSICAL_MMC && phys_ins_state > 0))
     {
-      if(get_insertion_state() == INSERTION_STATE_INSERTED)
+      sceKernelLockMutex(g_driver_mode_mutex_id, 1, 0);
+      
+      //check overflow condition
+      if(g_driver_mode == DRIVER_MODE_VIRTUAL_SD)
+        g_driver_mode = DRIVER_MODE_PHYSICAL_MMC;
+      else
+        g_driver_mode++;
+  
+      //remove card and deselect iso if previous mode was virtual and card was inserted
+      if((prev_driver_mode == DRIVER_MODE_VIRTUAL_MMC) || (prev_driver_mode == DRIVER_MODE_VIRTUAL_SD))
       {
-        set_insertion_state(INSERTION_STATE_REMOVED);
+        if(get_insertion_state() == INSERTION_STATE_INSERTED)
+        {
+          set_insertion_state(INSERTION_STATE_REMOVED);
+        }
+  
+        clear_selected_iso();
       }
-
-      clear_selected_iso();
+  
+      sceKernelUnlockMutex(g_driver_mode_mutex_id, 1);
+  
+      select_driver_mode(prev_driver_mode, get_driver_mode());
+  
+      set_redraw_request(1);
     }
-
-    //clear current content id if previous driver mode was physical mmc
-    if(prev_driver_mode == DRIVER_MODE_PHYSICAL_MMC)
-    {
-      clear_content_id();
-    }
-
-    sceKernelUnlockMutex(g_driver_mode_mutex_id, 1);
-
-    select_driver_mode(prev_driver_mode, get_driver_mode());
-
-    set_redraw_request(1);
   }
 
   return 0;
@@ -740,36 +763,38 @@ int SCE_CTRL_LEFT_callback()
   {
     uint32_t prev_driver_mode = get_driver_mode();
 
-    sceKernelLockMutex(g_driver_mode_mutex_id, 1, 0);
-
-    //check underflow condition
-    if(g_driver_mode == DRIVER_MODE_PHYSICAL_MMC)
-      g_driver_mode = DRIVER_MODE_VIRTUAL_SD;
-    else
-      g_driver_mode--;
-
-    //remove card and deselect iso if previous mode was virtual and card was inserted
-    if((prev_driver_mode == DRIVER_MODE_VIRTUAL_MMC) || (prev_driver_mode == DRIVER_MODE_VIRTUAL_SD))
+    int phys_ins_state = get_physical_ins_state();
+    
+    //forbid swithing states when there is a game card physically inserted
+    //this should help to avoid potential conflicts when forgetting to remove physical card
+    //and trying to insert virtual card
+    if(!(prev_driver_mode == DRIVER_MODE_PHYSICAL_MMC && phys_ins_state > 0))
     {
-      if(get_insertion_state() == INSERTION_STATE_INSERTED)
+      sceKernelLockMutex(g_driver_mode_mutex_id, 1, 0);
+      
+      //check underflow condition
+      if(g_driver_mode == DRIVER_MODE_PHYSICAL_MMC)
+        g_driver_mode = DRIVER_MODE_VIRTUAL_SD;
+      else
+        g_driver_mode--;
+  
+      //remove card and deselect iso if previous mode was virtual and card was inserted
+      if((prev_driver_mode == DRIVER_MODE_VIRTUAL_MMC) || (prev_driver_mode == DRIVER_MODE_VIRTUAL_SD))
       {
-        set_insertion_state(INSERTION_STATE_REMOVED);
+        if(get_insertion_state() == INSERTION_STATE_INSERTED)
+        {
+          set_insertion_state(INSERTION_STATE_REMOVED);
+        }
+  
+        clear_selected_iso();
       }
-
-      clear_selected_iso();
-    }
-
-    //clear current content id if previous driver mode was physical mmc
-    if(prev_driver_mode == DRIVER_MODE_PHYSICAL_MMC)
-    {
-      clear_content_id();
-    }
-
-    sceKernelUnlockMutex(g_driver_mode_mutex_id, 1);
-
-    select_driver_mode(prev_driver_mode, get_driver_mode());
-
-    set_redraw_request(1);
+  
+      sceKernelUnlockMutex(g_driver_mode_mutex_id, 1);
+  
+      select_driver_mode(prev_driver_mode, get_driver_mode());
+  
+      set_redraw_request(1);
+    }    
   }
 
   return 0;
@@ -959,6 +984,103 @@ int deinitialize_dump_status_poll_threading()
   return 0;
 }
 
+//---
+
+int check_insert_update_content_id(int prev_ins_state)
+{
+  int ins_state = 0;
+
+  //this should only apply in mmc physical mode because 
+  //it is meaningless to dump in physical sd state
+  //and it should be forbidden in virtual modes
+
+  uint32_t d_mode = get_driver_mode();
+  
+  if(d_mode == DRIVER_MODE_PHYSICAL_MMC)
+  {
+    //get state from driver
+    ins_state = get_phys_ins_state();
+
+    //save to user var
+    set_physical_ins_state(ins_state);
+
+    //if state has changed
+    if(ins_state != prev_ins_state)
+    {
+      //if card is inserted
+      if(ins_state > 0)
+      {
+        //try to get content id
+        char cnt_id[SFO_MAX_STR_VALUE_LEN];
+        int res = get_current_content_id_internal(cnt_id);
+        if(res >= 0)
+        {
+          //save new content id
+          set_content_id(cnt_id);
+
+          //redraw screen
+          set_redraw_request(1);
+        }
+      }
+      else
+      {
+        //clear current id
+        clear_content_id();
+        
+        //redraw screen
+        set_redraw_request(1);
+      }
+    }
+  }
+
+  return ins_state;
+}
+
+int insert_status_poll_thread(SceSize args, void* argp)
+{
+  //check the state upon start - maybe card is already inserted
+  int prev_ins_state = check_insert_update_content_id(0);
+
+  while(get_app_running() > 0
+  {
+    //wait 1 second
+    sceKernelDelayThread(1000000);
+
+    //check physical insert state - poll
+    prev_ins_state = check_insert_update_content_id(prev_ins_state);
+  }
+
+  return 0;
+}
+
+SceUID g_insert_status_poll_thread_id = -1;
+
+int initialize_insert_status_poll_threading()
+{
+  g_insert_status_poll_thread_id = sceKernelCreateThread("insert_status_poll", insert_status_poll_thread, 0x40, 0x1000, 0, 0, 0);
+
+  if(g_insert_status_poll_thread_id >= 0)
+    sceKernelStartThread(g_insert_status_poll_thread_id, 0, 0);
+
+  return 0;
+}
+
+int deinitialize_insert_status_poll_threading()
+{
+  if(g_insert_status_poll_thread_id >= 0)
+  {
+    int waitRet = 0;
+    sceKernelWaitThreadEnd(g_insert_status_poll_thread_id, &waitRet, 0);
+  
+    sceKernelDeleteThread(g_insert_status_poll_thread_id);
+    g_insert_status_poll_thread_id = -1;
+  }
+
+  return 0;
+}
+
+//---
+
 int SCE_CTRL_CROSS_callback()
 {
   //psvDebugScreenPrintf("psvgamesd: SCE_CTRL_CROSS\n");
@@ -977,13 +1099,13 @@ int SCE_CTRL_CROSS_callback()
       //dont allow to enter dump status polling state if already polling
       if(rn_state != DUMP_STATE_POLL_START)
       {
+        //get content id
         char cnt_id[SFO_MAX_STR_VALUE_LEN];
-        int res = get_current_content_id_internal(cnt_id);
-        if(res >= 0)
-        {
-          //save new content id
-          set_content_id(cnt_id);
+        get_content_id(cnt_id);
 
+        //check if content id is set
+        if(strnlen(cnt_id, 256) > 0)
+        {
           //start dumping the card - this will start new thread in kernel
           char full_path[256];
           strncpy(full_path, g_current_directory, 256);
@@ -1005,14 +1127,6 @@ int SCE_CTRL_CROSS_callback()
         
           //initialize new thread
           initialize_dump_status_poll_threading();
-        }
-        else
-        {
-          //clear current id
-          clear_content_id();
-
-          //redraw screen
-          set_redraw_request(1);
         }
       }
     }
@@ -1062,7 +1176,7 @@ int main_ctrl_loop(SceSize args, void* argp)
 {
   sceCtrlSetSamplingMode(SCE_CTRL_MODE_ANALOG);
 	
-	while(get_app_running())
+	while(get_app_running() > 0)
   {
     uint32_t buttons = readInput();
 
@@ -1308,6 +1422,8 @@ int initialize_threading()
   
   g_progress_sectors_mutex_id = sceKernelCreateMutex("progress_sectors_mutex", 0, 0, 0);
 
+  g_physical_ins_state_mutex_id = sceKernelCreateMutex("physical_ins_state_mutex", 0, 0, 0);
+
   g_ctrl_thread_id = sceKernelCreateThread("ctrl", main_ctrl_loop, 0x40, 0x1000, 0, 0, 0);
 
   if(g_ctrl_thread_id >= 0)
@@ -1352,6 +1468,9 @@ int deinitialize_threading()
   sceKernelDeleteMutex(g_progress_sectors_mutex_id);
   g_progress_sectors_mutex_id = -1;
 
+  sceKernelDeleteMutex(g_physical_ins_state_mutex_id);
+  g_physical_ins_state_mutex_id = -1;
+
   if(g_ctrl_thread_id >= 0)
   {
     int waitRet = 0;
@@ -1391,6 +1510,8 @@ int set_default_state()
   set_dump_state_poll_running_state(DUMP_STATE_POLL_STOP);
   set_total_sectors(0);
   set_progress_sectors(0);
+
+  set_physical_ins_state(0);
 }
 
 int save_state_to_kernel()
@@ -1422,7 +1543,11 @@ int main(int argc, char *argv[])
 
   initialize_threading();
 
+  initialize_insert_status_poll_threading();
+
   main_draw_loop();
+
+  deinitialize_insert_status_poll_threading();
 
   deinitialize_threading();
 
