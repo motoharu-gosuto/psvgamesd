@@ -1010,16 +1010,31 @@ int check_insert_update_content_id(int prev_ins_state)
       //if card is inserted
       if(ins_state > 0)
       {
-        //try to get content id
-        char cnt_id[SFO_MAX_STR_VALUE_LEN];
-        int res = get_current_content_id_internal(cnt_id);
-        if(res >= 0)
+        //when card is inserted - insertion is reported immediately
+        //however it will take time to initialize the card, do handshake and mount the file system
+        //since we will be reading content id from the card - we need to wait at least some time
+        //before trying to read. we should also retry on fail
+        
+        int nRetries = 0;
+        while(nRetries < 5)
         {
-          //save new content id
-          set_content_id(cnt_id);
+          sceKernelDelayThread(1000000);
 
-          //redraw screen
-          set_redraw_request(1);
+          //try to get content id
+          char cnt_id[SFO_MAX_STR_VALUE_LEN];
+          int res = get_current_content_id_internal(cnt_id);
+          if(res >= 0)
+          {
+            //save new content id
+            set_content_id(cnt_id);
+
+            //redraw screen
+            set_redraw_request(1);
+
+            break;
+          }
+
+          nRetries++;
         }
       }
       else
