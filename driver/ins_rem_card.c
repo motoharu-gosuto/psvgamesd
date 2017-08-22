@@ -13,8 +13,7 @@
 #include "sector_api.h"
 #include "mmc_emu.h" 
 
-insert_handler* sceSdifInsertHandler = 0;
-remove_handler* sceSdifRemoveHandler = 0; 
+//this file is used to control insertion and removal of card in virtual mode
 
 int g_gc_inserted = 0;
 
@@ -43,41 +42,35 @@ interrupt_argument* get_int_arg(int index)
   }
 }
 
-//calls original insert interrupt handler
-int insert_game_card()
+//block physical insertion for game card
+int insert_handler_hook(int unk, interrupt_argument* arg)
 {
-  if(sceSdifInsertHandler > 0)
+  if(arg->intr_table_index == SCE_SDSTOR_SDIF1_INDEX)
   {
-    FILE_GLOBAL_WRITE_LEN("Signal insert\n");
-
-    g_gc_inserted = 1;
-    return sceSdifInsertHandler(0, get_int_arg(SCE_SDSTOR_SDIF1_INDEX));
+    return 0;
   }
   else
   {
-    FILE_GLOBAL_WRITE_LEN("Signal insert failed\n");
-    return -1;
+    return TAI_CONTINUE(int, insert_handler_hook_ref, unk, arg);
   }
 }
 
-//calls original remove interrupt handler
-int remove_game_card()
+//block physical removal for game card
+int remove_handler_hook(int unk, interrupt_argument* arg)
 {
-  if(sceSdifRemoveHandler > 0)
+  if(arg->intr_table_index == SCE_SDSTOR_SDIF1_INDEX)
   {
-    FILE_GLOBAL_WRITE_LEN("Signal remove\n");
-
-    g_gc_inserted = 0;
-    return sceSdifRemoveHandler(0, get_int_arg(SCE_SDSTOR_SDIF1_INDEX));
+    return 0;
   }
   else
   {
-    FILE_GLOBAL_WRITE_LEN("Signal remove failed\n");
-    return -1;
+    return TAI_CONTINUE(int, remove_handler_hook_ref, unk, arg);
   }
 }
 
 //does the same functionality as insert interrupt handler and emulates the interrupt
+//we need emulation because we block original insert / remove handlers that handle physical insertion
+//this is to forbid physical insertion of card in virtual mode
 int insert_game_card_emu()
 {
   interrupt_argument* ia = get_int_arg(SCE_SDSTOR_SDIF1_INDEX);
@@ -94,6 +87,8 @@ int insert_game_card_emu()
 }
 
 //does the same functionality as remove interrupt handler and emulates the interrupt
+//we need emulation because we block original insert / remove handlers that handle physical insertion
+//this is to forbid physical insertion of card in virtual mode
 int remove_game_card_emu()
 {
   interrupt_argument* ia = get_int_arg(SCE_SDSTOR_SDIF1_INDEX);
@@ -132,11 +127,9 @@ int initialize_ins_rem()
   sdstor_info.size = sizeof(tai_module_info_t);
   if (taiGetModuleInfoForKernel(KERNEL_PID, "SceSdstor", &sdstor_info) >= 0) 
   {
-    //initialize card insert handler
-    module_get_offset(KERNEL_PID, sdstor_info.modid, 0, 0x3BD5, (uintptr_t*)&sceSdifInsertHandler);
+    insert_handler_hook_id = taiHookFunctionOffsetForKernel(KERNEL_PID, &insert_handler_hook_ref, sdstor_info.modid, 0, 0x3BD4, 1, insert_handler_hook);
 
-    //get card remove handler
-    module_get_offset(KERNEL_PID, sdstor_info.modid, 0, 0x3BC9, (uintptr_t*)&sceSdifRemoveHandler);
+    remove_handler_hook_id = taiHookFunctionOffsetForKernel(KERNEL_PID, &remove_handler_hook_ref, sdstor_info.modid, 0, 0x3BC8, 1, remove_handler_hook);
   }
 
   tai_module_info_t sdif_info;
@@ -151,6 +144,18 @@ int initialize_ins_rem()
 
 int deinitialize_ins_rem()
 {
+  if(insert_handler_hook_id >= 0)
+  {
+    taiHookReleaseForKernel(insert_handler_hook_id, insert_handler_hook_ref);
+    insert_handler_hook_id = -1;
+  }
+
+  if(remove_handler_hook_id >= 0)
+  {
+    taiHookReleaseForKernel(remove_handler_hook_id, remove_handler_hook_ref);
+    remove_handler_hook_id = -1;
+  }
+
   if(get_insert_state_hook_id >= 0)
   {
     taiHookReleaseForKernel(get_insert_state_hook_id, get_insert_state_hook_ref);

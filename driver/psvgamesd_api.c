@@ -43,11 +43,7 @@ int clear_iso_path()
 
 int insert_card()
 {
-  #ifdef ENABLE_INSERT_EMU
   insert_game_card_emu();
-  #else
-  insert_game_card();
-  #endif
 
   //FILE_GLOBAL_WRITE_LEN("insert_card\n");
   return 0;
@@ -55,11 +51,7 @@ int insert_card()
 
 int remove_card()
 {
-  #ifdef ENABLE_INSERT_EMU
   remove_game_card_emu();
-  #else
-  remove_game_card();
-  #endif
 
   //FILE_GLOBAL_WRITE_LEN("remove_card\n");
   return 0;
