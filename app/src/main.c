@@ -1041,7 +1041,7 @@ int insert_status_poll_thread(SceSize args, void* argp)
   //check the state upon start - maybe card is already inserted
   int prev_ins_state = check_insert_update_content_id(0);
 
-  while(get_app_running() > 0
+  while(get_app_running() > 0)
   {
     //wait 1 second
     sceKernelDelayThread(1000000);
