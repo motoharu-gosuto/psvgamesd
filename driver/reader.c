@@ -75,7 +75,7 @@ int get_mbr(const char* path)
     }
   }
 
-  return 0;
+  return -1;
 }
 
 psv_file_header_v1 g_img_header;
@@ -97,7 +97,7 @@ int get_img_header(const char* path)
 
       if(header_base.magic != PSV_MAGIC || header_base.version != PSV_VERSION_V1)
       {
-        FILE_GLOBAL_WRITE_LEN("Iso magic or version is invalid\n");
+        FILE_GLOBAL_WRITE_LEN("ISO magic or version is invalid\n");
 
         ksceIoClose(iso_fd);
         return -1;
@@ -118,7 +118,7 @@ int get_img_header(const char* path)
     }
   }
 
-  return 0;
+  return -1;
 }
 
 int get_cmd56_data(char* buffer)
