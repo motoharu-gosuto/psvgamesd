@@ -33,3 +33,5 @@ int dump_mmc_card_cancel();
 uint32_t dump_mmc_get_total_sectors();
 
 uint32_t dump_mmc_get_progress_sectors();
+
+int get_phys_ins_state();

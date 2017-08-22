@@ -18,6 +18,7 @@
 #include "virtual_sd.h"
 #include "ins_rem_card.h"
 #include "dumper.h"
+#include "sector_api.h"
 
 int set_iso_path(const char* path)
 {
@@ -167,4 +168,14 @@ uint32_t dump_mmc_get_progress_sectors()
   //FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
 
   return value;
+}
+
+int get_phys_ins_state()
+{
+  int res = ksceSdifGetCardInsertState1(SCE_SDIF_DEV_GAME_CARD);
+
+  //snprintf(sprintfBuffer, 256, "get_phys_ins_state %x\n", value);
+  //FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
+
+  return res;
 }
