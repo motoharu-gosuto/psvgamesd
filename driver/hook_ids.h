@@ -36,8 +36,6 @@ extern SceUID get_insert_state_hook_id;
 extern tai_hook_ref_t clear_sensitive_data_hook_ref;
 extern SceUID clear_sensitive_data_hook_id;
 
-extern tai_hook_ref_t insert_handler_hook_ref;
-extern SceUID insert_handler_hook_id;
+extern SceUID insert_handler_patch_id;
 
-extern tai_hook_ref_t remove_handler_hook_ref;
-extern SceUID remove_handler_hook_id;
+extern SceUID remove_handler_patch_id;

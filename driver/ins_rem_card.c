@@ -42,32 +42,6 @@ interrupt_argument* get_int_arg(int index)
   }
 }
 
-//block physical insertion for game card
-int insert_handler_hook(int unk, interrupt_argument* arg)
-{
-  if(arg->intr_table_index == SCE_SDSTOR_SDIF1_INDEX)
-  {
-    return 0;
-  }
-  else
-  {
-    return TAI_CONTINUE(int, insert_handler_hook_ref, unk, arg);
-  }
-}
-
-//block physical removal for game card
-int remove_handler_hook(int unk, interrupt_argument* arg)
-{
-  if(arg->intr_table_index == SCE_SDSTOR_SDIF1_INDEX)
-  {
-    return 0;
-  }
-  else
-  {
-    return TAI_CONTINUE(int, remove_handler_hook_ref, unk, arg);
-  }
-}
-
 //does the same functionality as insert interrupt handler and emulates the interrupt
 //we need emulation because we block original insert / remove handlers that handle physical insertion
 //this is to forbid physical insertion of card in virtual mode
@@ -104,6 +78,34 @@ int remove_game_card_emu()
   return ksceKernelSetEventFlag(ia->SceSdstorRequest_evid, CARD_REMOVE_SDSTOR_REQUEST_EVENT_FLAG);
 }
 
+//block physical insertion for game card in virtual mode
+int insert_handler_hook(int unk, interrupt_argument* arg)
+{
+  if(arg->intr_table_index == SCE_SDSTOR_SDIF1_INDEX)
+  {
+    return 0;
+  }
+  else
+  {
+    interrupt_argument* ia = get_int_arg(arg->intr_table_index);
+    return ksceKernelSetEventFlag(ia->SceSdstorRequest_evid, CARD_INSERT_SDSTOR_REQUEST_EVENT_FLAG);
+  }
+}
+
+//block physical removal for game card in virtual mode
+int remove_handler_hook(int unk, interrupt_argument* arg)
+{
+  if(arg->intr_table_index == SCE_SDSTOR_SDIF1_INDEX)
+  {
+    return 0;
+  }
+  else
+  {
+    interrupt_argument* ia = get_int_arg(arg->intr_table_index);
+    return ksceKernelSetEventFlag(ia->SceSdstorRequest_evid, CARD_REMOVE_SDSTOR_REQUEST_EVENT_FLAG);
+  }
+}
+
 //this function emulates physical insertion signal
 //since card is not connected - reading insert state from DMA mapped region will always return 0
 //that is why insertion is emulated with g_gc_inserted variable
@@ -127,9 +129,15 @@ int initialize_ins_rem()
   sdstor_info.size = sizeof(tai_module_info_t);
   if (taiGetModuleInfoForKernel(KERNEL_PID, "SceSdstor", &sdstor_info) >= 0) 
   {
-    insert_handler_hook_id = taiHookFunctionOffsetForKernel(KERNEL_PID, &insert_handler_hook_ref, sdstor_info.modid, 0, 0x3BD4, 1, insert_handler_hook);
+    void* insert_handler_pointer = &insert_handler_hook;
+    char* ins_data = (char*)(&insert_handler_pointer);
+    char far_jump_ins_patch[8] = {0xDF, 0xF8, 0x00, 0xF0, ins_data[0], ins_data[1], ins_data[2], ins_data[3]}; // LDR.W PC, off_ where off_ is next 4 bytes
+    insert_handler_patch_id = taiInjectDataForKernel(KERNEL_PID, sdstor_info.modid, 0, 0x3BD4, far_jump_ins_patch, 8);
 
-    remove_handler_hook_id = taiHookFunctionOffsetForKernel(KERNEL_PID, &remove_handler_hook_ref, sdstor_info.modid, 0, 0x3BC8, 1, remove_handler_hook);
+    void* remove_handler_pointer = &remove_handler_hook;
+    char* rem_data = (char*)(&remove_handler_pointer);
+    char far_jump_rem_patch[8] = {0xDF, 0xF8, 0x00, 0xF0, rem_data[0], rem_data[1], rem_data[2], rem_data[3]}; // LDR.W PC, off_ where off_ is next 4 bytes
+    remove_handler_patch_id = taiInjectDataForKernel(KERNEL_PID, sdstor_info.modid, 0, 0x3BC8, far_jump_rem_patch, 8);
   }
 
   tai_module_info_t sdif_info;
@@ -144,16 +152,16 @@ int initialize_ins_rem()
 
 int deinitialize_ins_rem()
 {
-  if(insert_handler_hook_id >= 0)
+  if(insert_handler_patch_id >= 0)
   {
-    taiHookReleaseForKernel(insert_handler_hook_id, insert_handler_hook_ref);
-    insert_handler_hook_id = -1;
+    taiInjectReleaseForKernel(insert_handler_patch_id);
+    insert_handler_patch_id = -1;
   }
 
-  if(remove_handler_hook_id >= 0)
+  if(remove_handler_patch_id >= 0)
   {
-    taiHookReleaseForKernel(remove_handler_hook_id, remove_handler_hook_ref);
-    remove_handler_hook_id = -1;
+    taiInjectReleaseForKernel(remove_handler_patch_id);
+    remove_handler_patch_id = -1;
   }
 
   if(get_insert_state_hook_id >= 0)
