@@ -14,6 +14,7 @@
 #include "cmd56_key.h"
 #include "psv_types.h"
 #include "functions.h"
+#include "defines.h"
 
 #define DUMP_STATE_START 1
 #define DUMP_STATE_STOP 0
@@ -120,8 +121,10 @@ int dump_img(SceUID dev_fd, SceUID out_fd, const MBR* dump_mbr)
   {
     if((i % DUMP_BLOCK_TICK_SIZE) == 0)
     {
+      #ifdef ENABLE_DEBUG_LOG
       //snprintf(sprintfBuffer, 256, "%x from %x\n", i, nBlocks);
       //FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
+      #endif
 
       //make sure vita does not go to sleep
       ksceKernelPowerTick(SCE_KERNEL_POWER_TICK_DISABLE_AUTO_SUSPEND);
@@ -191,12 +194,16 @@ int dump_core(SceUID dev_fd, SceUID out_fd)
 
   if(memcmp(dump_mbr.header, SCEHeader, 0x20) != 0)
   {
+    #ifdef ENABLE_DEBUG_LOG
     FILE_GLOBAL_WRITE_LEN("SCE header is invalid\n");
+    #endif
     return -1;
   }
 
+  #ifdef ENABLE_DEBUG_LOG
   snprintf(sprintfBuffer, 256, "max sector in sd dev: %x\n", dump_mbr.sizeInBlocks);
   FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
+  #endif
 
   //seek to beginning
   ksceIoLseek(dev_fd, 0, SEEK_SET);
@@ -215,30 +222,40 @@ int dump_thread_internal(SceSize args, void* argp)
   dump_args* da = (dump_args*)argp;
   if(da <= 0)
   {
+    #ifdef ENABLE_DEBUG_LOG
     FILE_GLOBAL_WRITE_LEN("Invalid arguments in dump thread\n");
+    #endif
     return -1;
   }
 
   SceUID dev_fd = ksceIoOpen("sdstor0:gcd-lp-ign-entire", SCE_O_RDONLY, 0777);
   if(dev_fd < 0)
   {
+    #ifdef ENABLE_DEBUG_LOG
     FILE_GLOBAL_WRITE_LEN("Failed to open sd dev\n");
+    #endif
     return -1;
   }
 
+  #ifdef ENABLE_DEBUG_LOG
   FILE_GLOBAL_WRITE_LEN("Opened sd dev\n");
+  #endif
 
   SceUID out_fd = ksceIoOpen(da->dump_path, SCE_O_CREAT | SCE_O_TRUNC | SCE_O_WRONLY, 0777);
 
   if(out_fd < 0)
   {
+    #ifdef ENABLE_DEBUG_LOG
     FILE_GLOBAL_WRITE_LEN("Failed to open output file\n");
+    #endif
 
     ksceIoClose(dev_fd);
     return -1; 
   }
 
+  #ifdef ENABLE_DEBUG_LOG
   FILE_GLOBAL_WRITE_LEN("Opened output file\n");
+  #endif
 
   dump_core(dev_fd, out_fd);
 
@@ -250,7 +267,9 @@ int dump_thread_internal(SceSize args, void* argp)
 
 int dump_thread(SceSize args, void* argp)
 {
+  #ifdef ENABLE_DEBUG_LOG
   FILE_GLOBAL_WRITE_LEN("Started Dump Thread\n");
+  #endif
 
   //indicate that dumping process has started
   set_running_state(DUMP_STATE_START);
@@ -260,7 +279,9 @@ int dump_thread(SceSize args, void* argp)
   //indicate that dumping process has finished
   set_running_state(DUMP_STATE_STOP);
 
+  #ifdef ENABLE_DEBUG_LOG
   FILE_GLOBAL_WRITE_LEN("Dump finished\n");
+  #endif
 
   return 0;
 } 
@@ -274,10 +295,14 @@ int initialize_dump_thread(const char* dump_path)
   
   if(g_dumpThreadId >= 0)
   {
+    #ifdef ENABLE_DEBUG_LOG
     FILE_GLOBAL_WRITE_LEN("Created Dump Thread\n");
+    #endif
 
+    #ifdef ENABLE_DEBUG_LOG
     snprintf(sprintfBuffer, 256, "path %s\n", dump_path);
     FILE_GLOBAL_WRITE_LEN(sprintfBuffer);     
+    #endif
 
     //copying the path to yet another variable to be able to clear g_dump_path that is used for requests
     memset(da_inst_dump_path, 0, 256);
@@ -288,8 +313,10 @@ int initialize_dump_thread(const char* dump_path)
   }
   else
   {
+    #ifdef ENABLE_DEBUG_LOG
     snprintf(sprintfBuffer, 256, "Failed to create Dump Thread: %x\n", g_dumpThreadId);
     FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
+    #endif
   }
 
   return 0;
@@ -313,7 +340,9 @@ int deinitialize_dump_thread()
 
 int handle_dump_request(int dump_state, const char* dump_path)
 {
+  #ifdef ENABLE_DEBUG_LOG
   FILE_GLOBAL_WRITE_LEN("handle_dump_request\n");
+  #endif
 
   switch(dump_state)
   {
@@ -346,14 +375,18 @@ int handle_dump_request(int dump_state, const char* dump_path)
 
         deinitialize_dump_thread();
 
+        #ifdef ENABLE_DEBUG_LOG
         FILE_GLOBAL_WRITE_LEN("Dump canceled\n");
+        #endif
       }
 
       break;
     }
     default:
     {
+      #ifdef ENABLE_DEBUG_LOG
       FILE_GLOBAL_WRITE_LEN("Unknown dump state\n");
+      #endif
       break;
     }
   }
@@ -363,33 +396,41 @@ int handle_dump_request(int dump_state, const char* dump_path)
 
 int dump_poll_thread(SceSize args, void* argp)
 {
+  #ifdef ENABLE_DEBUG_LOG
   FILE_GLOBAL_WRITE_LEN("Started Dump Poll Thread\n");
+  #endif
   
   while(1)
   {
     //lock mutex
     int res = ksceKernelLockMutex(dump_req_lock, 1, 0);
+    #ifdef ENABLE_DEBUG_LOG
     if(res < 0)
     {
       snprintf(sprintfBuffer, 256, "failed to ksceKernelLockMutex dump_req_lock : %x\n", res);
       FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
     }
+    #endif
 
     //wait for request
     res = sceKernelWaitCondForDriver(dump_req_cond, 0);
+    #ifdef ENABLE_DEBUG_LOG
     if(res < 0)
     {
       snprintf(sprintfBuffer, 256, "failed to sceKernelWaitCondForDriver dump_req_cond : %x\n", res);
       FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
     }
+    #endif
 
     //unlock mutex
     res = ksceKernelUnlockMutex(dump_req_lock, 1);
+    #ifdef ENABLE_DEBUG_LOG
     if(res < 0)
     {
       snprintf(sprintfBuffer, 256, "failed to ksceKernelUnlockMutex dump_req_lock : %x\n", res);
       FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
     }
+    #endif
 
     handle_dump_request(g_dump_state, g_dump_path);
 
@@ -403,45 +444,63 @@ int dump_poll_thread(SceSize args, void* argp)
 int initialize_dump_threading()
 {
   g_total_sectors_mutex_id = ksceKernelCreateMutex("total_sectors_mutex", 0, 0, 0);
+  #ifdef ENABLE_DEBUG_LOG
   if(g_total_sectors_mutex_id >= 0)
     FILE_GLOBAL_WRITE_LEN("Created g_total_sectors_mutex\n");
+  #endif
 
   g_progress_sectors_mutex_id = ksceKernelCreateMutex("progress_sectors_mutex", 0, 0, 0);
+  #ifdef ENABLE_DEBUG_LOG
   if(g_progress_sectors_mutex_id >= 0)
     FILE_GLOBAL_WRITE_LEN("Created g_progress_sectors_mutex\n");
+  #endif
 
   g_running_state_mutex_id = ksceKernelCreateMutex("running_state_mutex", 0, 0, 0);
+  #ifdef ENABLE_DEBUG_LOG
   if(g_running_state_mutex_id >= 0)
     FILE_GLOBAL_WRITE_LEN("Created g_running_state_mutex\n");
+  #endif
 
   dump_req_lock = ksceKernelCreateMutex("dump_req_lock", 0, 0, 0);
+  #ifdef ENABLE_DEBUG_LOG
   if(dump_req_lock >= 0)
     FILE_GLOBAL_WRITE_LEN("Created dump_req_lock\n");
+  #endif
 
   dump_req_cond = sceKernelCreateCondForDriver("dump_req_cond", 0, dump_req_lock, 0);
+  #ifdef ENABLE_DEBUG_LOG
   if(dump_req_cond >= 0)
     FILE_GLOBAL_WRITE_LEN("Created dump_req_cond\n");
+  #endif
 
   dump_resp_lock = ksceKernelCreateMutex("dump_resp_lock", 0, 0, 0);
+  #ifdef ENABLE_DEBUG_LOG
   if(dump_resp_lock >= 0)
     FILE_GLOBAL_WRITE_LEN("Created dump_resp_lock\n");
+  #endif
 
   dump_resp_cond = sceKernelCreateCondForDriver("dump_resp_cond", 0, dump_resp_lock, 0);
+  #ifdef ENABLE_DEBUG_LOG
   if(dump_resp_cond >= 0)
     FILE_GLOBAL_WRITE_LEN("Created dump_resp_cond\n");
+  #endif
 
   g_dumpPollThreadId = ksceKernelCreateThread("DumpPollThread", &dump_poll_thread, 0x64, 0x10000, 0, 0, 0);
 
   if(g_dumpPollThreadId >= 0)
   {
+    #ifdef ENABLE_DEBUG_LOG
     FILE_GLOBAL_WRITE_LEN("Created Dump Poll Thread\n");
+    #endif
 
     int res = ksceKernelStartThread(g_dumpPollThreadId, 0, 0);
   }
   else
   {
+    #ifdef ENABLE_DEBUG_LOG
     snprintf(sprintfBuffer, 256, "Failed to create Dump Poll Thread: %x\n", g_dumpPollThreadId);
     FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
+    #endif
   }
 
   return 0;
@@ -491,27 +550,33 @@ int dump_request_response_base()
 
   //lock mutex
   int res = ksceKernelLockMutex(dump_resp_lock, 1, 0);
+  #ifdef ENABLE_DEBUG_LOG
   if(res < 0)
   {
     snprintf(sprintfBuffer, 256, "failed to ksceKernelLockMutex dump_resp_lock : %x\n", res);
     FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
   }
+  #endif
 
   //wait for response
   res = sceKernelWaitCondForDriver(dump_resp_cond, 0);
+  #ifdef ENABLE_DEBUG_LOG
   if(res < 0)
   {
     snprintf(sprintfBuffer, 256, "failed to sceKernelWaitCondForDriver dump_resp_cond : %x\n", res);
     FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
   }
+  #endif
 
   //unlock mutex
   res = ksceKernelUnlockMutex(dump_resp_lock, 1);
+  #ifdef ENABLE_DEBUG_LOG
   if(res < 0)
   {
     snprintf(sprintfBuffer, 256, "failed to ksceKernelUnlockMutex dump_resp_lock : %x\n", res);
     FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
   }
+  #endif
 
   return 0;
 }
