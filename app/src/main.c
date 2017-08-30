@@ -1648,7 +1648,7 @@ int main(int argc, char *argv[])
   //unlock ps button back upon exit
   ps_btn_unlock();
 
-  sceKernelDelayThread(5*1000*1000);
+  sceKernelDelayThread(2*1000*1000);
 
   sceKernelExitProcess(0);
   return 0;
