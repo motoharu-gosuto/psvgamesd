@@ -31,27 +31,33 @@ int sd_read_hook_threaded(void* ctx_part, int sector, char* buffer, int nSectors
 
     //lock mutex
     int res = ksceKernelLockMutex(resp_lock, 1, 0);
+    #ifdef ENABLE_DEBUG_LOG
     if(res < 0)
     {
       snprintf(sprintfBuffer, 256, "failed to ksceKernelLockMutex resp_lock : %x\n", res);
       FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
     }
+    #endif
 
     //wait for response
     res = sceKernelWaitCondForDriver(resp_cond, 0);
+    #ifdef ENABLE_DEBUG_LOG
     if(res < 0)
     {
       snprintf(sprintfBuffer, 256, "failed to sceKernelWaitCondForDriver resp_cond : %x\n", res);
       FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
     }
+    #endif
 
     //unlock mutex
     res = ksceKernelUnlockMutex(resp_lock, 1);
+    #ifdef ENABLE_DEBUG_LOG
     if(res < 0)
     {
       snprintf(sprintfBuffer, 256, "failed to ksceKernelUnlockMutex resp_lock : %x\n", res);
       FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
     }
+    #endif
 
     return g_res;
   }
