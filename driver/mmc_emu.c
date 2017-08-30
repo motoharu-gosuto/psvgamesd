@@ -279,8 +279,10 @@ int emulate_mmc_command(sd_context_global* ctx, cmd_input* cmd_data1, cmd_input*
                 }
                 default:
                 {
+                    #ifdef ENABLE_DEBUG_LOG
                     snprintf(sprintfBuffer, 256, "Unsupported cmd6 argument: %x\n", cmd_data1->argument);
                     FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
+                    #endif
                     return 0x80320002;
                 }
             }
@@ -455,14 +457,18 @@ int emulate_mmc_command(sd_context_global* ctx, cmd_input* cmd_data1, cmd_input*
                 }
                 else
                 {
+                    #ifdef ENABLE_DEBUG_LOG
                     snprintf(sprintfBuffer, 256, "Unsupported command: %d in cmd23\n", cmd_data2->command);
                     FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
+                    #endif
                     return 0x80320002;
                 }
             }
             else
             {
+                #ifdef ENABLE_DEBUG_LOG
                 FILE_GLOBAL_WRITE_LEN("Expected second command in cmd23\n");
+                #endif
                 return 0x80320002;
             }
 
@@ -480,8 +486,10 @@ int emulate_mmc_command(sd_context_global* ctx, cmd_input* cmd_data1, cmd_input*
         }
         default:
         {
+            #ifdef ENABLE_DEBUG_LOG
             snprintf(sprintfBuffer, 256, "Unsupported command: %d\n", cmd_data1->command);
             FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
+            #endif
             return 0x80320002;
         }
     }
