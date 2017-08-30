@@ -9,7 +9,9 @@
 
 int module_start(SceSize argc, const void *args) 
 {
+  #ifdef ENABLE_DEBUG_LOG
   FILE_GLOBAL_WRITE_LEN("Startup iso driver\n");
+  #endif
 
   if(initialize_functions() >= 0)
   {
