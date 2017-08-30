@@ -9,7 +9,6 @@
 //read about dictionary here
 //https://github.com/facebook/zstd
 
-
 #include "lz4.h"
 
 #include <stdio.h>
@@ -22,32 +21,36 @@ typedef SceInt64 SceOff;
 
 #define MIN(x, y) (x) < (y) ? (x) : (y)
 
-enum 
+int64_t get_file_size(FILE* inpFp)
 {
-    BLOCK_BYTES = 1024*10,  /* 1 KiB of uncompressed data in a block */
-    MAX_BLOCKS = 1024 /* For simplicity of implementation */
-};
+   int res = _fseeki64(inpFp, 0, SEEK_END);
+   int64_t pos = _ftelli64(inpFp);
+   res = _fseeki64(inpFp, 0, SEEK_SET);  
+   return pos;
+}
+
+int64_t roundDown(int64_t n, int64_t m) 
+{
+   return n >= 0 ? (n / m) * m : ((n - m + 1) / m) * m;
+}
+
+/** round n up to nearest multiple of m */
+int64_t roundUp(int64_t n, int64_t m) 
+{
+   return n >= 0 ? ((n + m - 1) / m) * m : (n / m) * m;
+}
 
 int get_sizeof_header()
 {
    return 0;
 }
 
-int test_compress(FILE* outFp, FILE* inpFp)
+int test_compress_internal(FILE* outFp, FILE* inpFp, int block_bytes, const char* dicData, int64_t dicSize, SceOff* offsetsTable, int offsetsCapacity, char* compressedData, char* rawData)
 {
    LZ4_stream_t lz4Stream_body;
    LZ4_stream_t* lz4Stream = &lz4Stream_body;
 
-   char compressedData[LZ4_COMPRESSBOUND(BLOCK_BYTES)];
-   memset(compressedData, 0, LZ4_COMPRESSBOUND(BLOCK_BYTES));
-
-   char rawData[BLOCK_BYTES];
-   memset(rawData, 0, BLOCK_BYTES);
-
-   SceOff offsets[MAX_BLOCKS];
-   memset(offsets, 0, MAX_BLOCKS * sizeof(SceOff));
-
-   SceOff* offsetsEnd = offsets;
+   SceOff* offsetsEnd = offsetsTable;
 
    LZ4_resetStream(lz4Stream);
 
@@ -57,15 +60,18 @@ int test_compress(FILE* outFp, FILE* inpFp)
    while (1)
    {
       // read raw data
-      int rawDataSize = fread(rawData, sizeof(char), BLOCK_BYTES, inpFp);
+      int rawDataSize = fread(rawData, sizeof(char), block_bytes, inpFp);
       if (rawDataSize == 0)
          break;
 
       //load zero size dictionary (this kinda resets the stream?)
-      LZ4_loadDict(lz4Stream, NULL, 0);
+      if (dicData == 0)
+         LZ4_loadDict(lz4Stream, NULL, 0);
+      else
+         LZ4_loadDict(lz4Stream, dicData, dicSize);
 
       // compress raw data
-      int compressedDataSize = LZ4_compress_fast_continue(lz4Stream, rawData, compressedData, rawDataSize, sizeof(compressedData), 1);
+      int compressedDataSize = LZ4_compress_fast_continue(lz4Stream, rawData, compressedData, rawDataSize, LZ4_COMPRESSBOUND(block_bytes), 1);
       if (compressedDataSize <= 0)
          return -1;
 
@@ -76,60 +82,73 @@ int test_compress(FILE* outFp, FILE* inpFp)
       *offsetsEnd = *(offsetsEnd - 1) + compressedDataSize;
       offsetsEnd++;
 
-      if (offsetsEnd - offsets > MAX_BLOCKS) 
+      if (offsetsEnd - offsetsTable > offsetsCapacity)
          return -1;
    }
 
    // Write the tailing jump table
-   *offsetsEnd++ = (offsetsEnd - offsets);
+   *offsetsEnd++ = (offsetsEnd - offsetsTable);
 
-   fwrite(offsets, sizeof(SceOff), (offsetsEnd - offsets), outFp);
-   
+   fwrite(offsetsTable, sizeof(SceOff), (offsetsEnd - offsetsTable), outFp);
+
    return 0;
 }
 
-int test_decompress(FILE* outFp, FILE* inpFp, SceOff dataOffset, int dataLength)
+int test_compress(FILE* outFp, FILE* inpFp, int block_bytes, const char* dicData, int64_t dicSize, int offsetsCapacity)
+{
+   char* compressedData = (char*)malloc(LZ4_COMPRESSBOUND(block_bytes));
+   if (compressedData == 0)
+      return -1;
+
+   memset(compressedData, 0, LZ4_COMPRESSBOUND(block_bytes));
+
+   char* rawData = (char*)malloc(block_bytes);
+   if (rawData == 0)
+   {
+      free(compressedData);
+      return -1;
+   }
+
+   memset(rawData, 0, block_bytes);
+
+   SceOff* offsetsTable = (SceOff*)malloc(offsetsCapacity * sizeof(SceOff));
+   if (offsetsTable == 0)
+   {
+      free(compressedData);
+      free(rawData);
+      return -1;
+   }
+   
+   memset(offsetsTable, 0, offsetsCapacity * sizeof(SceOff));
+
+   int res = test_compress_internal(outFp, inpFp, block_bytes, dicData, dicSize, offsetsTable, offsetsCapacity, compressedData, rawData);
+
+   free(compressedData);
+   free(rawData);
+   free(offsetsTable);
+
+   return res;
+}
+
+int test_decompress_internal(FILE* outFp, FILE* inpFp, SceOff dataOffset, int dataLength, int block_bytes, const char* dicData, int64_t dicSize, SceOff* offsetsTable, char* compressedData, char* decompressedData)
 {
    LZ4_streamDecode_t lz4StreamDecode_body;
    LZ4_streamDecode_t* lz4StreamDecode = &lz4StreamDecode_body;
 
    // The blocks [currentBlock, endBlock) contain the data we want
-   SceOff startBlock = dataOffset / BLOCK_BYTES;
-   SceOff endBlock = ((dataOffset + dataLength - 1) / BLOCK_BYTES) + 1;
-
-   if (dataLength == 0)
-      return -1;
-
-   // read number of offsets from tail
-   SceOff numOffsets = 0;
-   fseek(inpFp, -(sizeof(SceOff)), SEEK_END); //seek to number of offsets
-   fread(&numOffsets, sizeof(SceOff), 1, inpFp);
-
-   if (numOffsets <= endBlock) 
-      return -1;
-
-   //read offset table from tail
-   SceOff offsets[MAX_BLOCKS];
-   memset(offsets, 0, MAX_BLOCKS * sizeof(SceOff));
-   fseek(inpFp, -(sizeof(SceOff)* (numOffsets + 1)), SEEK_END);
-   fread(offsets, sizeof(SceOff), numOffsets, inpFp);
+   SceOff startBlock = dataOffset / block_bytes;
+   SceOff endBlock = ((dataOffset + dataLength - 1) / block_bytes) + 1;
 
    // Seek to the first block to read
-   fseek(inpFp, offsets[startBlock], SEEK_SET);
-   SceOff offset = dataOffset % BLOCK_BYTES;
-
-   char compressedData[LZ4_COMPRESSBOUND(BLOCK_BYTES)];
-   memset(compressedData, 0, LZ4_COMPRESSBOUND(BLOCK_BYTES));
-
-   char decompressedData[BLOCK_BYTES];
-   memset(decompressedData, 0, BLOCK_BYTES);
+   _fseeki64(inpFp, offsetsTable[startBlock], SEEK_SET);
+   SceOff offset = dataOffset % block_bytes;
 
    // Start decoding
    int length = dataLength;
    for (SceOff i = startBlock; i < endBlock; ++i)
    {
       // The difference in offsets is the size of the block
-      int compressedDataSize = offsets[i + 1] - offsets[i];
+      int compressedDataSize = offsetsTable[i + 1] - offsetsTable[i];
 
       // read compressed data
       int readDataSize = fread(compressedData, sizeof(char), compressedDataSize, inpFp);
@@ -137,10 +156,13 @@ int test_decompress(FILE* outFp, FILE* inpFp, SceOff dataOffset, int dataLength)
          return -1;
 
       //set zero size dictionary (this kinda resets the stream?)
-      LZ4_setStreamDecode(lz4StreamDecode, NULL, 0);
+      if (dicData == 0)
+         LZ4_setStreamDecode(lz4StreamDecode, NULL, 0);
+      else
+         LZ4_setStreamDecode(lz4StreamDecode, dicData, dicSize);
 
       //decompress data
-      int decBytes = LZ4_decompress_safe_continue(lz4StreamDecode, compressedData, decompressedData, compressedDataSize, BLOCK_BYTES);
+      int decBytes = LZ4_decompress_safe_continue(lz4StreamDecode, compressedData, decompressedData, compressedDataSize, block_bytes);
       if (decBytes <= 0)
          return -1;
 
@@ -157,6 +179,65 @@ int test_decompress(FILE* outFp, FILE* inpFp, SceOff dataOffset, int dataLength)
    }
 
    return 0;
+}
+
+int test_decompress(FILE* outFp, FILE* inpFp, SceOff dataOffset, int dataLength, int block_bytes, const char* dicData, int64_t dicSize)
+{
+   if (dataLength == 0)
+      return -1;
+
+   char* compressedData = (char*)malloc(LZ4_COMPRESSBOUND(block_bytes));
+   if (compressedData == 0)
+      return -1;
+
+   memset(compressedData, 0, LZ4_COMPRESSBOUND(block_bytes));
+
+   char* decompressedData = (char*)malloc(block_bytes);
+   if (decompressedData == 0)
+   {
+      free(compressedData);
+      return -1;
+   }
+
+   memset(decompressedData, 0, block_bytes);
+
+   SceOff endBlock = ((dataOffset + dataLength - 1) / block_bytes) + 1;
+
+   // read number of offsets from tail
+   SceOff numOffsets = 0;
+   _fseeki64(inpFp, -((SceOff)sizeof(SceOff)), SEEK_END); //seek to number of offsets
+   fread(&numOffsets, sizeof(SceOff), 1, inpFp);
+
+   // validate offset arg
+   if (numOffsets <= endBlock)
+   {
+      free(compressedData);
+      free(decompressedData);
+      return -1;
+   }
+
+   // allocate offsets table
+   SceOff* offsetsTable = (SceOff*)malloc(numOffsets * sizeof(SceOff));
+   if (offsetsTable == 0)
+   {
+      free(compressedData);
+      free(decompressedData);
+      return -1;
+   }
+
+   memset(offsetsTable, 0, numOffsets * sizeof(SceOff));
+
+   //read offset table from tail
+   _fseeki64(inpFp, -((SceOff)sizeof(SceOff)* (numOffsets + 1)), SEEK_END);
+   fread(offsetsTable, sizeof(SceOff), numOffsets, inpFp);
+
+   int res = test_decompress_internal(outFp, inpFp, dataOffset, dataLength, block_bytes, dicData, dicSize, offsetsTable, compressedData, decompressedData);
+
+   free(compressedData);
+   free(decompressedData);
+   free(offsetsTable);
+
+   return res;
 }
 
 int compare(FILE* fp0, FILE* fp1, int length)
@@ -189,13 +270,21 @@ int compare(FILE* fp0, FILE* fp1, int length)
 
 //-----------------
 
-int compress(const char* inpFilename, const char* lz4Filename)
+int compress(const char* inpFilename, const char* lz4Filename, int block_bytes, const char* dicData, int64_t dicSize)
 {
    FILE* inpFp = fopen(inpFilename, "rb");
    FILE* outFp = fopen(lz4Filename, "wb");
 
-   printf("compress : %s -> %s\n", inpFilename, lz4Filename);
-   test_compress(outFp, inpFp);
+   int64_t fsize = get_file_size(inpFp);
+   int64_t offsetsCapacity = fsize / block_bytes;
+
+   //when filesize is smaller than block_bytes we guarantee that size is at least one
+   //this guarantees that value will be rounded which will give extra safe space and space for one extra item in the end
+   offsetsCapacity++; 
+   int64_t offsetsCapacityRound = roundUp(offsetsCapacity, 10);
+
+   printf("compress : %s -> %s\n", inpFilename, lz4Filename, block_bytes, offsetsCapacityRound);
+   test_compress(outFp, inpFp, block_bytes, dicData, dicSize, offsetsCapacityRound);
    printf("compress : done\n");
 
    fclose(outFp);
@@ -204,13 +293,13 @@ int compress(const char* inpFilename, const char* lz4Filename)
    return 0;
 }
 
-int decompress(const char* lz4Filename, const char* decFilename, SceOff offset, int length)
+int decompress(const char* lz4Filename, const char* decFilename, SceOff offset, int length, int block_bytes, const char* dicData, int64_t dicSize)
 {
    FILE* inpFp = fopen(lz4Filename, "rb");
    FILE* outFp = fopen(decFilename, "wb");
 
    printf("decompress : %s -> %s\n", lz4Filename, decFilename);
-   test_decompress(outFp, inpFp, offset, length);
+   test_decompress(outFp, inpFp, offset, length, block_bytes, dicData, dicSize);
    printf("decompress : done\n");
 
    fclose(outFp);
@@ -223,7 +312,7 @@ int verify(const char* inpFilename, const char* decFilename, int offset, int len
 {
    FILE* inpFp = fopen(inpFilename, "rb");
    FILE* decFp = fopen(decFilename, "rb");
-   fseek(inpFp, offset, SEEK_SET);
+   _fseeki64(inpFp, offset, SEEK_SET);
 
    printf("verify : %s <-> %s\n", inpFilename, decFilename);
    const int cmp = compare(inpFp, decFp, length);
@@ -242,16 +331,41 @@ int verify(const char* inpFilename, const char* decFilename, int offset, int len
    return 0;
 }
 
-//TODO:
-//ALL OFFSETS MUST BE 64 bit
+int64_t load_dict(const char* dicFilename, char** dicDataArg)
+{
+   FILE* inpFp = fopen(dicFilename, "rb");
+
+   size_t dicSize = get_file_size(inpFp);
+
+   char* dicData = (char*)malloc(dicSize);
+   if (dicData == 0)
+   {
+      fclose(inpFp);
+      return 0;
+   }
+
+   memset(dicData, 0, dicSize);
+   fread(dicData, sizeof(char), dicSize, inpFp);
+
+   fclose(inpFp);
+
+   *dicDataArg = dicData;
+   return dicSize;
+}
+
 //memory allocation should be dynamic - no MAX_BLOCKS
 //header should store information about type of compression. lz4 or smth else
+//offset table should move to top
 
 int main(int argc, char* argv[])
 {
    const char* inpFilename = "test.bin";
    const char* lz4Filename = "test.bin.lz4";
    const char* decFilename = "test.bin.lz4.dec";
+   const char* dicFilename = "dict.dic";
+
+   char* dicData = 0;
+   int64_t dicSize = load_dict(dicFilename, &dicData);
 
    //int offset = 10;
    //int length = 20900;
@@ -259,9 +373,15 @@ int main(int argc, char* argv[])
    int offset = 0;
    int length = 0x20910;
 
-   compress(inpFilename, lz4Filename);
-   decompress(lz4Filename, decFilename, offset, length);
+   int BLOCK_BYTES = 1024 * 64;
+   //int BLOCK_BYTES = 1024 * 2048;
+   //int BLOCK_BYTES = 1024 * 10;
+
+   compress(inpFilename, lz4Filename, BLOCK_BYTES, NULL, NULL);
+   decompress(lz4Filename, decFilename, offset, length, BLOCK_BYTES, NULL, NULL);
    verify(inpFilename, decFilename, offset, length);
+
+   free(dicData);
 
    return 0;
 }
