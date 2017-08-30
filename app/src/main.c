@@ -66,7 +66,7 @@ void ps_btn_unlock()
 
 char g_current_directory[256] = {0};
 
-int get_dir_max_file_pos(char* path)
+int get_dir_max_file_pos(const char* path)
 {
   int max_file_position = 0;
 
@@ -778,7 +778,7 @@ int SCE_CTRL_LEFT_callback()
     //forbid swithing states when there is a game card physically inserted
     //this should help to avoid potential conflicts when forgetting to remove physical card
     //and trying to insert virtual card
-    if(!(prev_driver_mode == DRIVER_MODE_PHYSICAL_MMC && phys_ins_state > 0)
+    if(!(prev_driver_mode == DRIVER_MODE_PHYSICAL_MMC && phys_ins_state > 0) &&
        !(prev_driver_mode == DRIVER_MODE_PHYSICAL_SD && phys_ins_state > 0))
     {
       sceKernelLockMutex(g_driver_mode_mutex_id, 1, 0);
@@ -1515,7 +1515,7 @@ int deinitialize_threading()
   return 0;
 }
 
-int set_dir(char* path)
+int set_dir(const char* path)
 {  
   strncpy(g_current_directory, path, 256);
 
@@ -1544,15 +1544,80 @@ int set_default_state()
   set_progress_sectors(0);
 
   set_physical_ins_state(0);
+
+  return 0;
 }
+
+int set_state_from_ctx(const psvgamesd_ctx* ctx)
+{
+  set_app_running(1);
+  set_redraw_request(1);
+
+  set_dir(ctx->current_directory);
+
+  set_selected_iso(ctx->selected_iso);
+
+  set_driver_mode(ctx->driver_mode);
+  set_insertion_state(ctx->insertion_state);
+
+  clear_content_id();
+
+  set_dump_state_poll_running_state(DUMP_STATE_POLL_STOP);
+  set_total_sectors(0);
+  set_progress_sectors(0);
+
+  set_physical_ins_state(0);
+
+  return 0;
+}
+
+//app_running - should not be saved
+//redraw_request - should not be saved
+//max_file_position position - should be updated using current_directory
+//file_position - should be updated using current_directory
+//current_directory - should be saved
+//selected_iso - should be saved
+//driver_mode - should be saved
+//insertion_state - should be saved
+//content_id - should be automatically updated by check_insert_update_content_id
+//dump_state_poll_running_state - should not be saved because user can not quit app while dumping
+//total_sectors - should not be saved because user can not quit app while dumping
+//progress_sectors - should not be saved because user can not quit app while dumping
+//physical_ins_state - should be automatically updated by check_insert_update_content_id
 
 int save_state_to_kernel()
 {
+  psvgamesd_ctx ctx;
+  memset(&ctx, 0, sizeof(psvgamesd_ctx));
+
+  strncpy(ctx.current_directory, g_current_directory, 256);
+  get_selected_iso(ctx.selected_iso);
+  ctx.driver_mode = get_driver_mode();
+  ctx.insertion_state = get_insertion_state();
+
+  save_psvgamesd_state(&ctx);
+
   return 0;
 }
 
 int load_state_from_kernel()
 {
+  psvgamesd_ctx ctx;
+  memset(&ctx, 0, sizeof(psvgamesd_ctx));
+
+  int res = load_psvgamesd_state(&ctx);
+  if(res < 0)
+  {
+    //default state should be set only if we do
+    //not have previous state saved in kernel
+    set_default_state(); 
+  }
+  else
+  {
+    //if previous state exists - restore it
+    set_state_from_ctx(&ctx);
+  }
+
   return 0;
 }
 
@@ -1567,11 +1632,6 @@ int main(int argc, char *argv[])
   ps_btn_lock();
 
   load_state_from_kernel();
-
-  //default state should be set only if we do
-  //not have previous state saved in kernel
-  //will need to introduce some flag for that
-  set_default_state(); 
 
   initialize_threading();
 
