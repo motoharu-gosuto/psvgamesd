@@ -27,7 +27,9 @@ interrupt_argument* get_int_arg(int index)
     int res = module_get_offset(KERNEL_PID, sdstor_info.modid, 1, 0x1B20 + sizeof(interrupt_argument) * index, (uintptr_t*)&int_arg);
     if(res < 0)
     {
+      #ifdef ENABLE_DEBUG_LOG
       FILE_GLOBAL_WRITE_LEN("get_int_arg failed\n");
+      #endif
       return 0;
     }
     else
@@ -37,7 +39,9 @@ interrupt_argument* get_int_arg(int index)
   }
   else
   {
+    #ifdef ENABLE_DEBUG_LOG
     FILE_GLOBAL_WRITE_LEN("get_int_arg failed\n");
+    #endif
     return 0;
   }
 }
@@ -50,11 +54,15 @@ int insert_game_card_emu()
   interrupt_argument* ia = get_int_arg(SCE_SDSTOR_SDIF1_INDEX);
   if(ia <= 0)
   {
+    #ifdef ENABLE_DEBUG_LOG
     FILE_GLOBAL_WRITE_LEN("Signal insert failed\n");
+    #endif
     return -1;
   }
 
+  #ifdef ENABLE_DEBUG_LOG
   FILE_GLOBAL_WRITE_LEN("Signal insert\n");
+  #endif
 
   g_gc_inserted = 1;
   return ksceKernelSetEventFlag(ia->SceSdstorRequest_evid, CARD_INSERT_SDSTOR_REQUEST_EVENT_FLAG);
@@ -68,11 +76,15 @@ int remove_game_card_emu()
   interrupt_argument* ia = get_int_arg(SCE_SDSTOR_SDIF1_INDEX);
   if(ia <= 0)
   {
+    #ifdef ENABLE_DEBUG_LOG
     FILE_GLOBAL_WRITE_LEN("Signal remove failed\n");
+    #endif
     return -1;
   }
 
+  #ifdef ENABLE_DEBUG_LOG
   FILE_GLOBAL_WRITE_LEN("Signal remove\n");
+  #endif
 
   g_gc_inserted = 0;
   return ksceKernelSetEventFlag(ia->SceSdstorRequest_evid, CARD_REMOVE_SDSTOR_REQUEST_EVENT_FLAG);
@@ -83,6 +95,8 @@ int insert_handler_hook(int unk, interrupt_argument* arg)
 {
   if(arg->intr_table_index == SCE_SDSTOR_SDIF1_INDEX)
   {
+    //you shoud NOT use any file i/o for logging inside this handler
+    //using file i/o will cause deadlock
     return 0;
   }
   else
@@ -97,6 +111,8 @@ int remove_handler_hook(int unk, interrupt_argument* arg)
 {
   if(arg->intr_table_index == SCE_SDSTOR_SDIF1_INDEX)
   {
+    //you shoud NOT use any file i/o for logging inside this handler
+    //using file i/o will cause deadlock
     return 0;
   }
   else
