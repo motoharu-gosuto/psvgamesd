@@ -491,6 +491,9 @@ int SCE_CTRL_START_callback()
         {
           insert_card();
 
+          //wait 2 seconds for insertion
+          sceKernelDelayThread(2000000);
+
           //redraw screen
           set_redraw_request(1);
         }
@@ -528,6 +531,9 @@ int SCE_CTRL_SELECT_callback()
         if(prev_state != get_insertion_state())
         {
           remove_card();
+
+          //wait 2 seconds for removal
+          sceKernelDelayThread(2000000);
 
           //redraw screen
           set_redraw_request(1);
@@ -720,7 +726,8 @@ int SCE_CTRL_RIGHT_callback()
     //forbid swithing states when there is a game card physically inserted
     //this should help to avoid potential conflicts when forgetting to remove physical card
     //and trying to insert virtual card
-    if(!(prev_driver_mode == DRIVER_MODE_PHYSICAL_MMC && phys_ins_state > 0))
+    if(!(prev_driver_mode == DRIVER_MODE_PHYSICAL_MMC && phys_ins_state > 0) &&
+       !(prev_driver_mode == DRIVER_MODE_PHYSICAL_SD && phys_ins_state > 0))
     {
       sceKernelLockMutex(g_driver_mode_mutex_id, 1, 0);
       
@@ -736,6 +743,9 @@ int SCE_CTRL_RIGHT_callback()
         if(get_insertion_state() == INSERTION_STATE_INSERTED)
         {
           set_insertion_state(INSERTION_STATE_REMOVED);
+
+          //wait 2 seconds for removal
+          sceKernelDelayThread(2000000);
         }
   
         clear_selected_iso();
@@ -768,7 +778,8 @@ int SCE_CTRL_LEFT_callback()
     //forbid swithing states when there is a game card physically inserted
     //this should help to avoid potential conflicts when forgetting to remove physical card
     //and trying to insert virtual card
-    if(!(prev_driver_mode == DRIVER_MODE_PHYSICAL_MMC && phys_ins_state > 0))
+    if(!(prev_driver_mode == DRIVER_MODE_PHYSICAL_MMC && phys_ins_state > 0)
+       !(prev_driver_mode == DRIVER_MODE_PHYSICAL_SD && phys_ins_state > 0))
     {
       sceKernelLockMutex(g_driver_mode_mutex_id, 1, 0);
       
@@ -784,6 +795,9 @@ int SCE_CTRL_LEFT_callback()
         if(get_insertion_state() == INSERTION_STATE_INSERTED)
         {
           set_insertion_state(INSERTION_STATE_REMOVED);
+
+          //wait 2 seconds for removal
+          sceKernelDelayThread(2000000);
         }
   
         clear_selected_iso();
@@ -874,6 +888,9 @@ int SCE_CTRL_CIRCLE_callback()
             set_insertion_state(INSERTION_STATE_REMOVED);
 
             remove_card();
+
+            //wait 2 seconds for removal
+            sceKernelDelayThread(2000000);
           }
 
           //construct path to new iso
