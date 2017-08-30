@@ -35,3 +35,19 @@ uint32_t dump_mmc_get_total_sectors();
 uint32_t dump_mmc_get_progress_sectors();
 
 int get_phys_ins_state();
+
+#pragma pack(push, 1)
+
+typedef struct psvgamesd_ctx
+{
+  char current_directory[256];
+  char selected_iso[256];
+  uint32_t driver_mode;
+  uint32_t insertion_state;
+}psvgamesd_ctx;
+
+#pragma pack(pop)
+
+int save_psvgamesd_state(const psvgamesd_ctx* state);
+
+int load_psvgamesd_state(psvgamesd_ctx* state);

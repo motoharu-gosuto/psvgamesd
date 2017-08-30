@@ -27,3 +27,5 @@ psvgamesd:
         - dump_mmc_get_total_sectors
         - dump_mmc_get_progress_sectors
         - get_phys_ins_state
+        - save_psvgamesd_state
+        - load_psvgamesd_state

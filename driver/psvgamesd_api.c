@@ -171,3 +171,24 @@ int get_phys_ins_state()
 
   return res;
 }
+
+static int g_is_driver_state_saved = 0;
+static psvgamesd_ctx g_driver_state;
+
+int save_psvgamesd_state(const psvgamesd_ctx* state)
+{
+  ksceKernelMemcpyUserToKernel(&g_driver_state, (uintptr_t)state, sizeof(psvgamesd_ctx));
+  
+  g_is_driver_state_saved = 1;
+  return 0;
+}
+
+int load_psvgamesd_state(psvgamesd_ctx* state)
+{
+  if(g_is_driver_state_saved == 0)
+    return -1;
+
+  ksceKernelMemcpyKernelToUser((uintptr_t)state, &g_driver_state, sizeof(psvgamesd_ctx));
+    
+  return 0;
+}
