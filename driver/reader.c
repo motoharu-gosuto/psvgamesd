@@ -11,6 +11,7 @@
 #include "mbr_types.h"
 #include "functions.h"
 #include "psv_types.h"
+#include "defines.h"
 
 SceUID readThreadId = -1;
 

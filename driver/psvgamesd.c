@@ -4,6 +4,7 @@
 #include "reader.h"
 #include "dumper.h"
 #include "global_log.h"
+#include "defines.h"
 
 #include "physical_mmc.h"
 

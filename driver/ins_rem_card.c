@@ -12,6 +12,7 @@
 #include "cmd56_key.h"
 #include "sector_api.h"
 #include "mmc_emu.h" 
+#include "defines.h"
 
 //this file is used to control insertion and removal of card in virtual mode
 

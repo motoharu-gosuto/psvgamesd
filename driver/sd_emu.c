@@ -9,6 +9,7 @@
 #include "global_log.h"
 #include "reader.h"
 #include "functions.h"
+#include "defines.h"
 
 #include "reg_common.h"
 #include "sd_reg.h"

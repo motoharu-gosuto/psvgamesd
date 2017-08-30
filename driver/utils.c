@@ -1,5 +1,4 @@
 #include "utils.h"
-#include "global_log.h"
 
 #include <psp2kern/types.h>
 #include <psp2kern/io/fcntl.h>
@@ -7,6 +6,9 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdint.h>
+
+#include "global_log.h"
+#include "defines.h"
 
 void CMD_BIN_LOG(char* data, int size)
 {

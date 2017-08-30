@@ -13,6 +13,7 @@
 #include "sector_api.h"
 #include "mmc_emu.h"
 #include "ins_rem_card.h"
+#include "defines.h"
 
 //redirect read operations to separate thread
 int mmc_read_hook_threaded(void* ctx_part, int	sector,	char* buffer, int nSectors)
