@@ -36,7 +36,9 @@ int get_mbr(const char* path)
 
     if(iso_fd >= 0)
     {
+      #ifdef ENABLE_DEBUG_LOG
       FILE_GLOBAL_WRITE_LEN("Opened iso\n");
+      #endif
 
       //read base header
 
@@ -45,7 +47,9 @@ int get_mbr(const char* path)
 
       if(header_base.magic != PSV_MAGIC || header_base.version != PSV_VERSION_V1)
       {
+        #ifdef ENABLE_DEBUG_LOG
         FILE_GLOBAL_WRITE_LEN("Iso magic or version is invalid\n");
+        #endif
 
         ksceIoClose(iso_fd);
         return -1;
@@ -63,14 +67,18 @@ int get_mbr(const char* path)
 
       ksceIoRead(iso_fd, &g_mbr, sizeof(MBR));
 
+      #ifdef ENABLE_DEBUG_LOG
       snprintf(sprintfBuffer, 256, "max sector: %x\n", g_mbr.sizeInBlocks);
       FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
+      #endif
 
       ksceIoClose(iso_fd);
     }
     else
     {
+      #ifdef ENABLE_DEBUG_LOG
       FILE_GLOBAL_WRITE_LEN("Failed to open iso\n");
+      #endif
       return -1;
     }
   }
@@ -88,7 +96,9 @@ int get_img_header(const char* path)
 
     if(iso_fd >= 0)
     {
+      #ifdef ENABLE_DEBUG_LOG
       FILE_GLOBAL_WRITE_LEN("Opened iso\n");
+      #endif
 
       //read base header
 
@@ -97,7 +107,9 @@ int get_img_header(const char* path)
 
       if(header_base.magic != PSV_MAGIC || header_base.version != PSV_VERSION_V1)
       {
+        #ifdef ENABLE_DEBUG_LOG
         FILE_GLOBAL_WRITE_LEN("ISO magic or version is invalid\n");
+        #endif
 
         ksceIoClose(iso_fd);
         return -1;
@@ -113,7 +125,9 @@ int get_img_header(const char* path)
     }
     else
     {
+      #ifdef ENABLE_DEBUG_LOG
       FILE_GLOBAL_WRITE_LEN("Failed to open iso\n");
+      #endif
       return -1;
     }
   }
@@ -193,41 +207,51 @@ int emulate_read(int sector, char* buffer, int nSectors)
     }
   }
 
+  #ifdef ENABLE_DEBUG_LOG
   //snprintf(sprintfBuffer, 256, "sector: %x nSectors: %x result: %x\n", sector, nSectors, res);
   //FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
+  #endif
 
   return res;
 }
 
 int read_thread(SceSize args, void *argp)
 {
+  #ifdef ENABLE_DEBUG_LOG
   FILE_GLOBAL_WRITE_LEN("Started Read Thread\n");
+  #endif
 
   while(1)
   {
     //lock mutex
     int res = ksceKernelLockMutex(req_lock, 1, 0);
+    #ifdef ENABLE_DEBUG_LOG
     if(res < 0)
     {
       snprintf(sprintfBuffer, 256, "failed to ksceKernelLockMutex req_lock : %x\n", res);
       FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
     }
+    #endif
 
     //wait for request
     res = sceKernelWaitCondForDriver(req_cond, 0);
+    #ifdef ENABLE_DEBUG_LOG
     if(res < 0)
     {
       snprintf(sprintfBuffer, 256, "failed to sceKernelWaitCondForDriver req_cond : %x\n", res);
       FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
     }
+    #endif
 
     //unlock mutex
     res = ksceKernelUnlockMutex(req_lock, 1);
+    #ifdef ENABLE_DEBUG_LOG
     if(res < 0)
     {
       snprintf(sprintfBuffer, 256, "failed to ksceKernelUnlockMutex req_lock : %x\n", res);
       FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
     }
+    #endif
     
     g_res = emulate_read(g_sector, g_buffer, g_nSectors);
 
@@ -241,26 +265,36 @@ int read_thread(SceSize args, void *argp)
 int initialize_read_threading()
 {
   req_lock = ksceKernelCreateMutex("req_lock", 0, 0, 0);
+  #ifdef ENABLE_DEBUG_LOG
   if(req_lock >= 0)
     FILE_GLOBAL_WRITE_LEN("Created req_lock\n");
+  #endif
 
   req_cond = sceKernelCreateCondForDriver("req_cond", 0, req_lock, 0);
+  #ifdef ENABLE_DEBUG_LOG
   if(req_cond >= 0)
     FILE_GLOBAL_WRITE_LEN("Created req_cond\n");
+  #endif
 
   resp_lock = ksceKernelCreateMutex("resp_lock", 0, 0, 0);
+  #ifdef ENABLE_DEBUG_LOG
   if(resp_lock >= 0)
     FILE_GLOBAL_WRITE_LEN("Created resp_lock\n");
+  #endif
 
   resp_cond = sceKernelCreateCondForDriver("resp_cond", 0, resp_lock, 0);
+  #ifdef ENABLE_DEBUG_LOG
   if(resp_cond >= 0)
     FILE_GLOBAL_WRITE_LEN("Created resp_cond\n");
+  #endif
   
   readThreadId = ksceKernelCreateThread("ReadThread", &read_thread, 0x64, 0x1000, 0, 0, 0);
 
   if(readThreadId >= 0)
   {
+    #ifdef ENABLE_DEBUG_LOG
     FILE_GLOBAL_WRITE_LEN("Created Read Thread\n");
+    #endif
 
     int res = ksceKernelStartThread(readThreadId, 0, 0);
   }
