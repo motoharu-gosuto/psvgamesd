@@ -21,6 +21,8 @@ void CMD_BIN_LOG(char* data, int size)
 
 int print_bytes(const char* data, int len)
 {
+  #ifdef ENABLE_DEBUG_LOG
+
   for(int i = 0; i < len; i++)
   {
     snprintf(sprintfBuffer, 256, "%02x", data[i]);
@@ -29,11 +31,15 @@ int print_bytes(const char* data, int len)
 
   FILE_GLOBAL_WRITE_LEN("\n");
 
+  #endif
+
   return 0;
 } 
 
 int print_cmd(cmd_input* cmd_data, int n,  char* when)
 {
+    #ifdef ENABLE_DEBUG_LOG
+
     snprintf(sprintfBuffer, 256, "--- CMD%d (%d) %s ---\n", cmd_data->command, n, when);
     FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
 
@@ -98,6 +104,8 @@ int print_cmd(cmd_input* cmd_data, int n,  char* when)
     */
 
     //print_bytes(cmd_data->vaddr_80, 0x10);
+
+    #endif
 
     return 0;
 }
