@@ -114,9 +114,19 @@ int initialize_hooks_virtual_mmc()
   {
     //override cmd56 handshake with dumped keys
     gc_cmd56_handshake_hook_id = taiHookFunctionImportForKernel(KERNEL_PID, &gc_cmd56_handshake_hook_ref, "SceSdstor", SceSblGcAuthMgrGcAuthForDriver_NID, 0x68781760, gc_cmd56_handshake_override_hook);
+    
+    #ifdef ENABLE_DEBUG_LOG
+    if(gc_cmd56_handshake_hook_id < 0)
+      FILE_GLOBAL_WRITE_LEN("Failed to init gc_cmd56_handshake_hook");
+    #endif
 
     //redirect read operations to separate thread
     mmc_read_hook_id = taiHookFunctionImportForKernel(KERNEL_PID, &mmc_read_hook_ref, "SceSdstor", SceSdifForDriver_NID, 0x6f8d529b, mmc_read_hook_threaded);
+    
+    #ifdef ENABLE_DEBUG_LOG
+    if(mmc_read_hook_id < 0)
+      FILE_GLOBAL_WRITE_LEN("Failed to init mmc_read_hook");
+    #endif
   }
 
   tai_module_info_t sdif_info;
@@ -124,6 +134,11 @@ int initialize_hooks_virtual_mmc()
   if (taiGetModuleInfoForKernel(KERNEL_PID, "SceSdif", &sdif_info) >= 0)
   {
     send_command_hook_id = taiHookFunctionOffsetForKernel(KERNEL_PID, &send_command_hook_ref, sdif_info.modid, 0, 0x17E8, 1, send_command_emu_hook);
+    
+    #ifdef ENABLE_DEBUG_LOG
+    if(send_command_hook_id < 0)
+      FILE_GLOBAL_WRITE_LEN("Failed to init send_command_hook");
+    #endif
   }
 
   initialize_ins_rem();
@@ -135,19 +150,37 @@ int deinitialize_hooks_virtual_mmc()
 {
   if(gc_cmd56_handshake_hook_id >= 0)
   {
-    taiHookReleaseForKernel(gc_cmd56_handshake_hook_id, gc_cmd56_handshake_hook_ref);
+    int res = taiHookReleaseForKernel(gc_cmd56_handshake_hook_id, gc_cmd56_handshake_hook_ref);
+    
+    #ifdef ENABLE_DEBUG_LOG
+    if(res < 0)
+      FILE_GLOBAL_WRITE_LEN("Failed to deinit gc_cmd56_handshake_hook");
+    #endif
+
     gc_cmd56_handshake_hook_id = -1;
   }
 
   if(mmc_read_hook_id >= 0)
   {
-    taiHookReleaseForKernel(mmc_read_hook_id, mmc_read_hook_ref);
+    int res = taiHookReleaseForKernel(mmc_read_hook_id, mmc_read_hook_ref);
+
+    #ifdef ENABLE_DEBUG_LOG
+    if(res < 0)
+      FILE_GLOBAL_WRITE_LEN("Failed to deinit mmc_read_hook");
+    #endif
+
     mmc_read_hook_id = -1;
   }
 
   if(send_command_hook_id >= 0)
   {
-    taiHookReleaseForKernel(send_command_hook_id, send_command_hook_ref);
+    int res = taiHookReleaseForKernel(send_command_hook_id, send_command_hook_ref);
+
+    #ifdef ENABLE_DEBUG_LOG
+    if(res < 0)
+      FILE_GLOBAL_WRITE_LEN("Failed to deinit send_command_hook");
+    #endif
+
     send_command_hook_id = -1;
   }
 

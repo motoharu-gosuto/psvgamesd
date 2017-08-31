@@ -4,6 +4,7 @@
 #include "global_log.h"
 #include "sector_api.h"
 #include "utils.h"
+#include "defines.h"
 
 #include <taihen.h>
 #include <module.h>
@@ -48,8 +49,9 @@ int send_command_debug_hook(sd_context_global* ctx, cmd_input* cmd_data1, cmd_in
   }
 }
 
-//this function clears cmd56 handshake data
+//originally this function clears cmd56 handshake data
 //we need to leave the data as is in order to be able to copy it later
+//we do it by returning 0 without calling TAI_CONTINUE
 int clear_sensitive_data_hook()
 {
   return 0;
@@ -63,6 +65,11 @@ int initialize_hooks_physical_mmc()
   {
     //read hook can be used for some debugging
     mmc_read_hook_id = taiHookFunctionImportForKernel(KERNEL_PID, &mmc_read_hook_ref, "SceSdstor", SceSdifForDriver_NID, 0x6f8d529b, mmc_read_hook_through);
+    
+    #ifdef ENABLE_DEBUG_LOG
+    if(mmc_read_hook_id < 0)
+      FILE_GLOBAL_WRITE_LEN("Failed to init mmc_read_hook");
+    #endif
   }
 
   tai_module_info_t sdif_info;
@@ -71,6 +78,11 @@ int initialize_hooks_physical_mmc()
   {
     //mmc command hook can be used for some debugging
     send_command_hook_id = taiHookFunctionOffsetForKernel(KERNEL_PID, &send_command_hook_ref, sdif_info.modid, 0, 0x17E8, 1, send_command_debug_hook);
+
+    #ifdef ENABLE_DEBUG_LOG
+    if(send_command_hook_id < 0)
+      FILE_GLOBAL_WRITE_LEN("Failed to init send_command_hook");
+    #endif
   }
 
   tai_module_info_t gc_info;
@@ -78,6 +90,11 @@ int initialize_hooks_physical_mmc()
   if (taiGetModuleInfoForKernel(KERNEL_PID, "SceSblGcAuthMgr", &gc_info) >= 0)
   {
     clear_sensitive_data_hook_id = taiHookFunctionExportForKernel(KERNEL_PID, &clear_sensitive_data_hook_ref, "SceSblGcAuthMgr", SceSblGcAuthMgrDrmBBForDriver_NID, 0xBB451E83, clear_sensitive_data_hook);
+
+    #ifdef ENABLE_DEBUG_LOG
+    if(clear_sensitive_data_hook_id < 0)
+      FILE_GLOBAL_WRITE_LEN("Failed to init clear_sensitive_data_hook");
+    #endif
   }
 
   return 0;
@@ -87,19 +104,37 @@ int deinitialize_hooks_physical_mmc()
 {
   if(mmc_read_hook_id >= 0)
   {
-    taiHookReleaseForKernel(mmc_read_hook_id, mmc_read_hook_ref);
+    int res = taiHookReleaseForKernel(mmc_read_hook_id, mmc_read_hook_ref);
+    
+    #ifdef ENABLE_DEBUG_LOG
+    if(res < 0)
+      FILE_GLOBAL_WRITE_LEN("Failed to deinit mmc_read_hook");
+    #endif
+
     mmc_read_hook_id = -1;
   }
 
   if(send_command_hook_id >= 0)
   {
-    taiHookReleaseForKernel(send_command_hook_id, send_command_hook_ref);
+    int res = taiHookReleaseForKernel(send_command_hook_id, send_command_hook_ref);
+
+    #ifdef ENABLE_DEBUG_LOG
+    if(res < 0)
+      FILE_GLOBAL_WRITE_LEN("Failed to deinit send_command_hook");
+    #endif
+
     send_command_hook_id = -1;
   }
 
   if(clear_sensitive_data_hook_id >= 0)
   {
-    taiHookReleaseForKernel(clear_sensitive_data_hook_id, clear_sensitive_data_hook_ref);
+    int res = taiHookReleaseForKernel(clear_sensitive_data_hook_id, clear_sensitive_data_hook_ref);
+
+    #ifdef ENABLE_DEBUG_LOG
+    if(res < 0)
+      FILE_GLOBAL_WRITE_LEN("Failed to deinit clear_sensitive_data_hook");
+    #endif
+
     clear_sensitive_data_hook_id = -1;
   }
 

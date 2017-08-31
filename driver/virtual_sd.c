@@ -122,9 +122,19 @@ int initialize_hooks_virtual_sd()
     //read hook to readirect read operations to iso
     sd_read_hook_id = taiHookFunctionImportForKernel(KERNEL_PID, &sd_read_hook_ref, "SceSdstor", SceSdifForDriver_NID, 0xb9593652, sd_read_hook_threaded);
     
+    #ifdef ENABLE_DEBUG_LOG
+    if(sd_read_hook_id < 0)
+      FILE_GLOBAL_WRITE_LEN("Failed to init sd_read_hook");
+    #endif
+    
     //patch for proc_initialize_generic_2 - so that sd card type is not ignored
     char zeroCallOnePatch[4] = {0x01, 0x20, 0x00, 0xBF};
     gen_init_2_patch_uid = taiInjectDataForKernel(KERNEL_PID, sdstor_info.modid, 0, 0x2498, zeroCallOnePatch, 4); //patch (BLX) to (MOVS R0, #1 ; NOP)
+
+    #ifdef ENABLE_DEBUG_LOG
+    if(gen_init_2_patch_uid < 0)
+      FILE_GLOBAL_WRITE_LEN("Failed to init gen_init_2_patch");
+    #endif
   }
 
   tai_module_info_t sdif_info;
@@ -136,18 +146,39 @@ int initialize_hooks_virtual_sd()
     char lowSpeed_check[4] = {0xF0, 0xFF, 0xFF, 0x00};
     hs_dis_patch1_uid = taiInjectDataForKernel(KERNEL_PID, sdif_info.modid, 0, 0x6B34, lowSpeed_check, 4); //0x06, 0x00, 0x00, 0x00, 0xF1, 0xFF, 0xFF, 0x00
 
+    #ifdef ENABLE_DEBUG_LOG
+    if(hs_dis_patch1_uid < 0)
+      FILE_GLOBAL_WRITE_LEN("Failed to init hs_dis_patch1");
+    #endif
+
     //this patch modifies CMD6 argument to set low speed mode instead of high speed mode
     char lowSpeed_set[4] = {0xF0, 0xFF, 0xFF, 0x80};
     hs_dis_patch2_uid = taiInjectDataForKernel(KERNEL_PID, sdif_info.modid, 0, 0x6B54, lowSpeed_set, 4); //0x06, 0x00, 0x00, 0x00, 0xF1, 0xFF, 0xFF, 0x80
+
+    #ifdef ENABLE_DEBUG_LOG
+    if(hs_dis_patch2_uid < 0)
+      FILE_GLOBAL_WRITE_LEN("Failed to init hs_dis_patch2");
+    #endif
+
     #endif
     
     //this hooks sd init function (there is separate function for mmc init)
     //this hook is used to set cmd56 handshake data
     init_sd_hook_id = taiHookFunctionExportForKernel(KERNEL_PID, &init_sd_hook_ref, "SceSdif", SceSdifForDriver_NID, 0xc1271539, init_sd_hook_virtual);
 
+    #ifdef ENABLE_DEBUG_LOG
+    if(init_sd_hook_id < 0)
+      FILE_GLOBAL_WRITE_LEN("Failed to init init_sd_hook");
+    #endif
+
     //this hooks command send function which is the main function for executing all commands that are sent from Vita to SD/MMC devices
     //this hook is used to emulate commands
     send_command_hook_id = taiHookFunctionOffsetForKernel(KERNEL_PID, &send_command_hook_ref, sdif_info.modid, 0, 0x17E8, 1, send_command_hook_emu);
+
+    #ifdef ENABLE_DEBUG_LOG
+    if(send_command_hook_id < 0)
+      FILE_GLOBAL_WRITE_LEN("Failed to init send_command_hook");
+    #endif
   }
 
   initialize_ins_rem();
@@ -159,37 +190,73 @@ int deinitialize_hooks_virtual_sd()
 {
   if(sd_read_hook_id >= 0)
   {
-   taiHookReleaseForKernel(sd_read_hook_id, sd_read_hook_ref);
-   sd_read_hook_id = -1;
+    int res = taiHookReleaseForKernel(sd_read_hook_id, sd_read_hook_ref);
+    
+    #ifdef ENABLE_DEBUG_LOG
+    if(res < 0)
+      FILE_GLOBAL_WRITE_LEN("Failed to deinit sd_read_hook");
+    #endif
+
+    sd_read_hook_id = -1;
   }
   
   if(gen_init_2_patch_uid >= 0)
   {
-    taiInjectReleaseForKernel(gen_init_2_patch_uid);
+    int res = taiInjectReleaseForKernel(gen_init_2_patch_uid);
+
+    #ifdef ENABLE_DEBUG_LOG
+    if(res < 0)
+      FILE_GLOBAL_WRITE_LEN("Failed to deinit gen_init_2_patch");
+    #endif
+
     gen_init_2_patch_uid = -1;
   }
 
   if(hs_dis_patch1_uid >= 0)
   {
-    taiInjectReleaseForKernel(hs_dis_patch1_uid);
+    int res = taiInjectReleaseForKernel(hs_dis_patch1_uid);
+
+    #ifdef ENABLE_DEBUG_LOG
+    if(res < 0)
+      FILE_GLOBAL_WRITE_LEN("Failed to deinit hs_dis_patch1");
+    #endif
+
     hs_dis_patch1_uid = -1;
   }
 
   if(hs_dis_patch2_uid >= 0)
   {
-    taiInjectReleaseForKernel(hs_dis_patch2_uid);
+    int res = taiInjectReleaseForKernel(hs_dis_patch2_uid);
+
+    #ifdef ENABLE_DEBUG_LOG
+    if(res < 0)
+      FILE_GLOBAL_WRITE_LEN("Failed to deinit hs_dis_patch2");
+    #endif
+
     hs_dis_patch2_uid = -1;
   }
 
   if(init_sd_hook_id >= 0)
   {
-    taiHookReleaseForKernel(init_sd_hook_id, init_sd_hook_ref);
+    int res = taiHookReleaseForKernel(init_sd_hook_id, init_sd_hook_ref);
+
+    #ifdef ENABLE_DEBUG_LOG
+    if(res < 0)
+      FILE_GLOBAL_WRITE_LEN("Failed to deinit init_sd_hook");
+    #endif
+
     init_sd_hook_id = -1;
   }
 
   if(send_command_hook_id >= 0)
   {
-    taiHookReleaseForKernel(send_command_hook_id, send_command_hook_ref);
+    int res = taiHookReleaseForKernel(send_command_hook_id, send_command_hook_ref);
+
+    #ifdef ENABLE_DEBUG_LOG
+    if(res < 0)
+      FILE_GLOBAL_WRITE_LEN("Failed to deinit send_command_hook");
+    #endif
+
     send_command_hook_id = -1;
   }
 

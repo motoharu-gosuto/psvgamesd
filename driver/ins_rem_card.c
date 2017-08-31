@@ -151,10 +151,20 @@ int initialize_ins_rem()
     char far_jump_ins_patch[8] = {0xDF, 0xF8, 0x00, 0xF0, ins_data[0], ins_data[1], ins_data[2], ins_data[3]}; // LDR.W PC, off_ where off_ is next 4 bytes
     insert_handler_patch_id = taiInjectDataForKernel(KERNEL_PID, sdstor_info.modid, 0, 0x3BD4, far_jump_ins_patch, 8);
 
+    #ifdef ENABLE_DEBUG_LOG
+    if(insert_handler_patch_id < 0)
+      FILE_GLOBAL_WRITE_LEN("Failed to init insert_handler_patch");
+    #endif
+
     void* remove_handler_pointer = &remove_handler_hook;
     char* rem_data = (char*)(&remove_handler_pointer);
     char far_jump_rem_patch[8] = {0xDF, 0xF8, 0x00, 0xF0, rem_data[0], rem_data[1], rem_data[2], rem_data[3]}; // LDR.W PC, off_ where off_ is next 4 bytes
     remove_handler_patch_id = taiInjectDataForKernel(KERNEL_PID, sdstor_info.modid, 0, 0x3BC8, far_jump_rem_patch, 8);
+
+    #ifdef ENABLE_DEBUG_LOG
+    if(remove_handler_patch_id < 0)
+      FILE_GLOBAL_WRITE_LEN("Failed to init remove_handler_patch");
+    #endif
   }
 
   tai_module_info_t sdif_info;
@@ -162,6 +172,11 @@ int initialize_ins_rem()
   if (taiGetModuleInfoForKernel(KERNEL_PID, "SceSdif", &sdif_info) >= 0)
   {
     get_insert_state_hook_id = taiHookFunctionOffsetForKernel(KERNEL_PID, &get_insert_state_hook_ref, sdif_info.modid, 0, 0xC84, 1, get_insert_state_hook);
+
+    #ifdef ENABLE_DEBUG_LOG
+    if(get_insert_state_hook_id < 0)
+      FILE_GLOBAL_WRITE_LEN("Failed to init get_insert_state_hook");
+    #endif
   }
 
   return 0;
@@ -171,19 +186,37 @@ int deinitialize_ins_rem()
 {
   if(insert_handler_patch_id >= 0)
   {
-    taiInjectReleaseForKernel(insert_handler_patch_id);
+    int res = taiInjectReleaseForKernel(insert_handler_patch_id);
+
+    #ifdef ENABLE_DEBUG_LOG
+    if(res < 0)
+      FILE_GLOBAL_WRITE_LEN("Failed to deinit insert_handler_patch");
+    #endif
+
     insert_handler_patch_id = -1;
   }
 
   if(remove_handler_patch_id >= 0)
   {
-    taiInjectReleaseForKernel(remove_handler_patch_id);
+    int res = taiInjectReleaseForKernel(remove_handler_patch_id);
+
+    #ifdef ENABLE_DEBUG_LOG
+    if(res < 0)
+      FILE_GLOBAL_WRITE_LEN("Failed to deinit remove_handler_patch");
+    #endif
+
     remove_handler_patch_id = -1;
   }
 
   if(get_insert_state_hook_id >= 0)
   {
-    taiHookReleaseForKernel(get_insert_state_hook_id, get_insert_state_hook_ref);
+    int res = taiHookReleaseForKernel(get_insert_state_hook_id, get_insert_state_hook_ref);
+
+    #ifdef ENABLE_DEBUG_LOG
+    if(res < 0)
+      FILE_GLOBAL_WRITE_LEN("Failed to deinit get_insert_state_hook");
+    #endif
+
     get_insert_state_hook_id = -1;
   }
 
