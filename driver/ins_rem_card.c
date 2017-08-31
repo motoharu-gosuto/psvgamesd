@@ -154,6 +154,8 @@ int initialize_ins_rem()
     #ifdef ENABLE_DEBUG_LOG
     if(insert_handler_patch_id < 0)
       FILE_GLOBAL_WRITE_LEN("Failed to init insert_handler_patch");
+    else
+      FILE_GLOBAL_WRITE_LEN("Init insert_handler_patch");
     #endif
 
     void* remove_handler_pointer = &remove_handler_hook;
@@ -164,6 +166,8 @@ int initialize_ins_rem()
     #ifdef ENABLE_DEBUG_LOG
     if(remove_handler_patch_id < 0)
       FILE_GLOBAL_WRITE_LEN("Failed to init remove_handler_patch");
+    else
+      FILE_GLOBAL_WRITE_LEN("Init remove_handler_patch");
     #endif
   }
 
@@ -176,6 +180,8 @@ int initialize_ins_rem()
     #ifdef ENABLE_DEBUG_LOG
     if(get_insert_state_hook_id < 0)
       FILE_GLOBAL_WRITE_LEN("Failed to init get_insert_state_hook");
+    else
+      FILE_GLOBAL_WRITE_LEN("Init get_insert_state_hook");
     #endif
   }
 
@@ -191,6 +197,8 @@ int deinitialize_ins_rem()
     #ifdef ENABLE_DEBUG_LOG
     if(res < 0)
       FILE_GLOBAL_WRITE_LEN("Failed to deinit insert_handler_patch");
+    else
+      FILE_GLOBAL_WRITE_LEN("Deinit insert_handler_patch");
     #endif
 
     insert_handler_patch_id = -1;
@@ -203,6 +211,8 @@ int deinitialize_ins_rem()
     #ifdef ENABLE_DEBUG_LOG
     if(res < 0)
       FILE_GLOBAL_WRITE_LEN("Failed to deinit remove_handler_patch");
+    else
+      FILE_GLOBAL_WRITE_LEN("Deinit remove_handler_patch");
     #endif
 
     remove_handler_patch_id = -1;
@@ -215,6 +225,8 @@ int deinitialize_ins_rem()
     #ifdef ENABLE_DEBUG_LOG
     if(res < 0)
       FILE_GLOBAL_WRITE_LEN("Failed to deinit get_insert_state_hook");
+    else
+      FILE_GLOBAL_WRITE_LEN("Deinit get_insert_state_hook");
     #endif
 
     get_insert_state_hook_id = -1;

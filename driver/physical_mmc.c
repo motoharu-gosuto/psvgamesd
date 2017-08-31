@@ -69,6 +69,8 @@ int initialize_hooks_physical_mmc()
     #ifdef ENABLE_DEBUG_LOG
     if(mmc_read_hook_id < 0)
       FILE_GLOBAL_WRITE_LEN("Failed to init mmc_read_hook");
+    else
+      FILE_GLOBAL_WRITE_LEN("Init mmc_read_hook");
     #endif
   }
 
@@ -82,6 +84,8 @@ int initialize_hooks_physical_mmc()
     #ifdef ENABLE_DEBUG_LOG
     if(send_command_hook_id < 0)
       FILE_GLOBAL_WRITE_LEN("Failed to init send_command_hook");
+    else
+      FILE_GLOBAL_WRITE_LEN("Init send_command_hook");
     #endif
   }
 
@@ -94,6 +98,8 @@ int initialize_hooks_physical_mmc()
     #ifdef ENABLE_DEBUG_LOG
     if(clear_sensitive_data_hook_id < 0)
       FILE_GLOBAL_WRITE_LEN("Failed to init clear_sensitive_data_hook");
+    else
+      FILE_GLOBAL_WRITE_LEN("Init clear_sensitive_data_hook");
     #endif
   }
 
@@ -109,6 +115,8 @@ int deinitialize_hooks_physical_mmc()
     #ifdef ENABLE_DEBUG_LOG
     if(res < 0)
       FILE_GLOBAL_WRITE_LEN("Failed to deinit mmc_read_hook");
+    else
+      FILE_GLOBAL_WRITE_LEN("Deinit mmc_read_hook");
     #endif
 
     mmc_read_hook_id = -1;
@@ -121,6 +129,8 @@ int deinitialize_hooks_physical_mmc()
     #ifdef ENABLE_DEBUG_LOG
     if(res < 0)
       FILE_GLOBAL_WRITE_LEN("Failed to deinit send_command_hook");
+    else
+      FILE_GLOBAL_WRITE_LEN("Deinit send_command_hook");
     #endif
 
     send_command_hook_id = -1;
@@ -133,6 +143,8 @@ int deinitialize_hooks_physical_mmc()
     #ifdef ENABLE_DEBUG_LOG
     if(res < 0)
       FILE_GLOBAL_WRITE_LEN("Failed to deinit clear_sensitive_data_hook");
+    else
+      FILE_GLOBAL_WRITE_LEN("Deinit clear_sensitive_data_hook");
     #endif
 
     clear_sensitive_data_hook_id = -1;
