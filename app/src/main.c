@@ -192,7 +192,7 @@ int readInput()
   return g_pressed_buttons;
 }
 
-//---
+//##########################################################################################
 
 SceUID g_app_running_mutex_id = -1;
 
@@ -461,7 +461,7 @@ void set_physical_ins_state(uint32_t value)
   sceKernelUnlockMutex(g_physical_ins_state_mutex_id, 1);
 }
 
-//---
+//##########################################################################################
 
 //insert iso
 int SCE_CTRL_START_callback()
@@ -474,25 +474,27 @@ int SCE_CTRL_START_callback()
   {
     //insertion only applies to virtual modes
     uint32_t d_mode = get_driver_mode();
-    if(d_mode == DRIVER_MODE_VIRTUAL_MMC || d_mode == DRIVER_MODE_VIRTUAL_SD)
+    if((d_mode == DRIVER_MODE_VIRTUAL_MMC) || (d_mode == DRIVER_MODE_VIRTUAL_SD))
     {
       //insertion only applies if iso is selected
       char sel_iso[256];
       get_selected_iso(sel_iso);
       if(strnlen(sel_iso, 256) > 0)
       {
-        //get prev state and set current state
+        //get prev state
         uint32_t prev_state = get_insertion_state();
 
+        //set current state
         set_insertion_state(INSERTION_STATE_INSERTED);
 
         //insert card only if state has changed
         if(prev_state != get_insertion_state())
         {
+          //insert card using kernel function
           insert_card();
 
           //wait 2 seconds for insertion
-          sceKernelDelayThread(2000000);
+          sceKernelDelayThread(2 * 1000 * 1000);
 
           //redraw screen
           set_redraw_request(1);
@@ -515,25 +517,27 @@ int SCE_CTRL_SELECT_callback()
   {
     //insertion only applies to virtual modes
     uint32_t d_mode = get_driver_mode();
-    if(d_mode == DRIVER_MODE_VIRTUAL_MMC || d_mode == DRIVER_MODE_VIRTUAL_SD)
+    if((d_mode == DRIVER_MODE_VIRTUAL_MMC) || (d_mode == DRIVER_MODE_VIRTUAL_SD))
     {
       //insertion only applies if iso is selected
       char sel_iso[256];
       get_selected_iso(sel_iso);
       if(strnlen(sel_iso, 256) > 0)
       {
-        //get prev state and set current state
+        //get prev state
         uint32_t prev_state = get_insertion_state();
 
+        //set current state
         set_insertion_state(INSERTION_STATE_REMOVED);
 
         //insert card only if state has changed
         if(prev_state != get_insertion_state())
         {
+          //remove card using kernel function
           remove_card();
 
           //wait 2 seconds for removal
-          sceKernelDelayThread(2000000);
+          sceKernelDelayThread(2 * 1000 * 1000);
 
           //redraw screen
           set_redraw_request(1);
@@ -593,35 +597,32 @@ int SCE_CTRL_DOWN_callback()
 
 int select_driver_mode(uint32_t prev_mode, uint32_t new_mode)
 {
-  //insertion only applies to virtual modes - remove card if it was inserted since we are changing mode
-  if((prev_mode == DRIVER_MODE_VIRTUAL_MMC) || (prev_mode == DRIVER_MODE_VIRTUAL_SD))
-  {
-    //remove card
-    if(get_insertion_state() == INSERTION_STATE_INSERTED)
-    {
-      remove_card();
-    }
-
-    //deselect iso
-    clear_iso_path();
-  }
-
   //execute deinit based on previous mode
   switch(prev_mode)
   {
     case DRIVER_MODE_PHYSICAL_MMC:
-    deinitialize_physical_mmc();
+    {
+      deinitialize_physical_mmc();
+    }
     break;
     case DRIVER_MODE_VIRTUAL_MMC:
-    deinitialize_virtual_mmc();
+    {
+      deinitialize_virtual_mmc();
+    }
     break;
     case DRIVER_MODE_PHYSICAL_SD:
-    deinitialize_physical_sd();
+    {
+      deinitialize_physical_sd();
+    }
     break;
     case DRIVER_MODE_VIRTUAL_SD:
-    deinitialize_virtual_sd();
+    {
+      deinitialize_virtual_sd();
+    }
     break;
     default:
+    {
+    }
     break;
   }
 
@@ -629,18 +630,28 @@ int select_driver_mode(uint32_t prev_mode, uint32_t new_mode)
   switch(new_mode)
   {
     case DRIVER_MODE_PHYSICAL_MMC:
-    initialize_physical_mmc();
+    {
+      initialize_physical_mmc();
+    }
     break;
     case DRIVER_MODE_VIRTUAL_MMC:
-    initialize_virtual_mmc();
+    {
+      initialize_virtual_mmc();
+    }
     break;
     case DRIVER_MODE_PHYSICAL_SD:
-    initialize_physical_sd();
+    {
+      initialize_physical_sd();
+    }
     break;
     case DRIVER_MODE_VIRTUAL_SD:
-    initialize_virtual_sd();
+    {
+      initialize_virtual_sd();
+    }
     break;
     default:
+    {
+    }
     break;
   }
 
@@ -740,19 +751,29 @@ int SCE_CTRL_RIGHT_callback()
       //remove card and deselect iso if previous mode was virtual and card was inserted
       if((prev_driver_mode == DRIVER_MODE_VIRTUAL_MMC) || (prev_driver_mode == DRIVER_MODE_VIRTUAL_SD))
       {
+        //get current ins state
         if(get_insertion_state() == INSERTION_STATE_INSERTED)
         {
+          //set new ins state
           set_insertion_state(INSERTION_STATE_REMOVED);
 
+          //remove card using kernel function
+          remove_card();
+
           //wait 2 seconds for removal
-          sceKernelDelayThread(2000000);
+          sceKernelDelayThread(2 * 1000 * 1000);
         }
   
+        //clear iso variable
         clear_selected_iso();
+
+        //deselect iso in kernel
+        clear_iso_path();
       }
   
       sceKernelUnlockMutex(g_driver_mode_mutex_id, 1);
   
+      //change driver mode only after removing the card and deselecting iso
       select_driver_mode(prev_driver_mode, get_driver_mode());
   
       set_redraw_request(1);
@@ -792,19 +813,29 @@ int SCE_CTRL_LEFT_callback()
       //remove card and deselect iso if previous mode was virtual and card was inserted
       if((prev_driver_mode == DRIVER_MODE_VIRTUAL_MMC) || (prev_driver_mode == DRIVER_MODE_VIRTUAL_SD))
       {
+        //get current ins state
         if(get_insertion_state() == INSERTION_STATE_INSERTED)
         {
+          //set new ins state
           set_insertion_state(INSERTION_STATE_REMOVED);
 
+          //remove card using kernel function
+          remove_card();
+
           //wait 2 seconds for removal
-          sceKernelDelayThread(2000000);
+          sceKernelDelayThread(2 * 1000 * 1000);
         }
   
+        //clear iso variable
         clear_selected_iso();
+
+        //deselect iso in kernel
+        clear_iso_path();
       }
   
       sceKernelUnlockMutex(g_driver_mode_mutex_id, 1);
   
+      //change driver mode only after removing the card and deselecting iso
       select_driver_mode(prev_driver_mode, get_driver_mode());
   
       set_redraw_request(1);
@@ -849,6 +880,7 @@ int SCE_CTRL_TRIANGLE_callback()
   uint32_t rn_state = get_dump_state_poll_running_state();
   if(rn_state != DUMP_STATE_POLL_START)
   {
+    //set running var - this will be picked by main_draw_loop
     set_app_running(0);
   }
 
@@ -873,10 +905,11 @@ int SCE_CTRL_CIRCLE_callback()
       int found = get_dir_filename_at_pos(g_current_directory, get_file_position(), filepath);
       if(found >= 0)
       {
-        //get previous iso and set new iso
+        //get previous iso to temp var
         char prev_iso[256];
         get_selected_iso(prev_iso);
 
+        //set new iso
         set_selected_iso(filepath);
         
         //check if selection has changed
@@ -885,12 +918,14 @@ int SCE_CTRL_CIRCLE_callback()
           //remove previous card if it was inserted
           if(get_insertion_state() == INSERTION_STATE_INSERTED)
           {
+            //set insertion var
             set_insertion_state(INSERTION_STATE_REMOVED);
 
+            //remove card using kernel function
             remove_card();
 
             //wait 2 seconds for removal
-            sceKernelDelayThread(2000000);
+            sceKernelDelayThread(2 * 1000 * 1000);
           }
 
           //construct path to new iso
@@ -900,6 +935,7 @@ int SCE_CTRL_CIRCLE_callback()
           strncat(full_path, "/", 256);
           strncat(full_path, filepath, 256);
 
+          //set iso path var
           set_iso_path(full_path);
 
           //redraw screen
@@ -912,6 +948,8 @@ int SCE_CTRL_CIRCLE_callback()
   return 0;
 }
 
+//------------------------------------------
+
 int dump_status_poll_thread_internal(SceSize args, void* argp)
 {
   uint32_t prev_total_sectors = -1;
@@ -920,7 +958,7 @@ int dump_status_poll_thread_internal(SceSize args, void* argp)
   while(1)
   {
     //wait 1 second
-    sceKernelDelayThread(1000000);
+    sceKernelDelayThread(1 * 1000 * 1000);
 
     //get stats from kernel
     uint32_t total_sectors = dump_mmc_get_total_sectors(); 
@@ -1001,7 +1039,7 @@ int deinitialize_dump_status_poll_threading()
   return 0;
 }
 
-//---
+//------------------------------------------
 
 int check_insert_update_content_id(int prev_ins_state)
 {
@@ -1035,7 +1073,7 @@ int check_insert_update_content_id(int prev_ins_state)
         int nRetries = 0;
         while(nRetries < 5)
         {
-          sceKernelDelayThread(1000000);
+          sceKernelDelayThread(1 * 1000 * 1000);
 
           //try to get content id
           char cnt_id[SFO_MAX_STR_VALUE_LEN];
@@ -1076,7 +1114,7 @@ int insert_status_poll_thread(SceSize args, void* argp)
   while(get_app_running() > 0)
   {
     //wait 1 second
-    sceKernelDelayThread(1000000);
+    sceKernelDelayThread(1 * 1000 * 1000);
 
     //check physical insert state - poll
     prev_ins_state = check_insert_update_content_id(prev_ins_state);
@@ -1118,6 +1156,7 @@ int SCE_CTRL_CROSS_callback()
   //psvDebugScreenPrintf("psvgamesd: SCE_CTRL_CROSS\n");
 
   //forbid to press any buttons during dump except for square (which is cancel)
+  //also protects from re entering dump start state
   uint32_t rn_state = get_dump_state_poll_running_state();
   if(rn_state != DUMP_STATE_POLL_START)
   {
@@ -1126,40 +1165,34 @@ int SCE_CTRL_CROSS_callback()
     // dumping is only allowed in physical mmc mode
     if(d_mode == DRIVER_MODE_PHYSICAL_MMC)
     {
-      uint32_t rn_state = get_dump_state_poll_running_state();
+      //get content id
+      char cnt_id[SFO_MAX_STR_VALUE_LEN];
+      get_content_id(cnt_id);
 
-      //dont allow to enter dump status polling state if already polling
-      if(rn_state != DUMP_STATE_POLL_START)
+      //check if content id is set
+      if(strnlen(cnt_id, 256) > 0)
       {
-        //get content id
-        char cnt_id[SFO_MAX_STR_VALUE_LEN];
-        get_content_id(cnt_id);
-
-        //check if content id is set
-        if(strnlen(cnt_id, 256) > 0)
-        {
-          //start dumping the card - this will start new thread in kernel
-          char full_path[256];
-          strncpy(full_path, g_current_directory, 256);
-          strncat(full_path, "/", 256);
-          strncat(full_path, cnt_id, 256);
-          strncat(full_path, ".psv", 256);
-          
-          //start dump process in kernel
-          dump_mmc_card_start(full_path);
-
-          //redraw screen
-          set_redraw_request(1);
-
-          //start polling only after redraw request
-          //since thread will be requesting redraw as well
-          
-          //if previous dump status poll operation was not canceled - status poll thread will not be deinitialized
-          deinitialize_dump_status_poll_threading();
+        //start dumping the card - this will start new thread in kernel
+        char full_path[256];
+        strncpy(full_path, g_current_directory, 256);
+        strncat(full_path, "/", 256);
+        strncat(full_path, cnt_id, 256);
+        strncat(full_path, ".psv", 256);
         
-          //initialize new thread
-          initialize_dump_status_poll_threading();
-        }
+        //start dump process in kernel
+        dump_mmc_card_start(full_path);
+
+        //redraw screen
+        set_redraw_request(1);
+
+        //start polling only after redraw request
+        //since thread will be requesting redraw as well
+        
+        //if previous dump status poll operation was not canceled - status poll thread will not be deinitialized
+        deinitialize_dump_status_poll_threading();
+      
+        //initialize new thread
+        initialize_dump_status_poll_threading();
       }
     }
   }
@@ -1172,6 +1205,7 @@ int SCE_CTRL_SQUARE_callback()
   //psvDebugScreenPrintf("psvgamesd: SCE_CTRL_SQUARE\n");
 
   //forbid to press square (dump cancel) when not in the process of dumping
+  //also protects from re entering dump cancel state
   uint32_t rn_state = get_dump_state_poll_running_state();
   if(rn_state != DUMP_STATE_POLL_STOP)
   {
@@ -1180,29 +1214,26 @@ int SCE_CTRL_SQUARE_callback()
     // dumping is only allowed in physical mmc mode
     if(d_mode == DRIVER_MODE_PHYSICAL_MMC)
     {
-      uint32_t rn_state = get_dump_state_poll_running_state();
-    
-      //dont allow to enter cancel state if not yet polling
-      if(rn_state != DUMP_STATE_POLL_STOP)
-      {
-        //stop dump process in kernel
-        dump_mmc_card_cancel();
+      //stop dump process in kernel
+      dump_mmc_card_cancel();
 
-        //redraw screen
-        set_redraw_request(1);
+      //redraw screen
+      set_redraw_request(1);
 
-        //stop polling dump state
+      //stop polling dump state
 
-        //indicate that we are entering cancel state (this will stop polling thread)
-        set_dump_state_poll_running_state(DUMP_STATE_POLL_STOP);
+      //indicate that we are entering cancel state (this will stop polling thread)
+      set_dump_state_poll_running_state(DUMP_STATE_POLL_STOP);
 
-        deinitialize_dump_status_poll_threading();
-      }
+      //deinitialize status polling thread
+      deinitialize_dump_status_poll_threading();
     }
   }
 
   return 0;
 }
+
+//##########################################################################################
 
 int main_ctrl_loop(SceSize args, void* argp)
 {
@@ -1430,6 +1461,8 @@ int main_draw_loop()
   return 0;
 }
 
+//##########################################################################################
+
 SceUID g_ctrl_thread_id = -1;
 
 int initialize_threading()
@@ -1648,7 +1681,7 @@ int main(int argc, char *argv[])
   //unlock ps button back upon exit
   ps_btn_unlock();
 
-  sceKernelDelayThread(2*1000*1000);
+  sceKernelDelayThread(2 * 1000 * 1000);
 
   sceKernelExitProcess(0);
   return 0;
