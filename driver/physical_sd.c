@@ -145,7 +145,7 @@ int initialize_hooks_physical_sd()
 
     #ifdef ENABLE_DEBUG_LOG
     if(send_command_hook_id < 0)
-      FILE_GLOBAL_WRITE_LEN("Failed to init init_sd_hook");
+      FILE_GLOBAL_WRITE_LEN("Failed to init send_command_hook");
     #endif
   }
 
