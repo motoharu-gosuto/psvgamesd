@@ -117,9 +117,9 @@ int initialize_hooks_virtual_mmc()
     
     #ifdef ENABLE_DEBUG_LOG
     if(gc_cmd56_handshake_hook_id < 0)
-      FILE_GLOBAL_WRITE_LEN("Failed to init gc_cmd56_handshake_hook");
+      FILE_GLOBAL_WRITE_LEN("Failed to init gc_cmd56_handshake_hook\n");
     else
-      FILE_GLOBAL_WRITE_LEN("Init gc_cmd56_handshake_hook");
+      FILE_GLOBAL_WRITE_LEN("Init gc_cmd56_handshake_hook\n");
     #endif
 
     //redirect read operations to separate thread
@@ -127,9 +127,9 @@ int initialize_hooks_virtual_mmc()
     
     #ifdef ENABLE_DEBUG_LOG
     if(mmc_read_hook_id < 0)
-      FILE_GLOBAL_WRITE_LEN("Failed to init mmc_read_hook");
+      FILE_GLOBAL_WRITE_LEN("Failed to init mmc_read_hook\n");
     else
-      FILE_GLOBAL_WRITE_LEN("Init mmc_read_hook");
+      FILE_GLOBAL_WRITE_LEN("Init mmc_read_hook\n");
     #endif
   }
 
@@ -141,9 +141,9 @@ int initialize_hooks_virtual_mmc()
     
     #ifdef ENABLE_DEBUG_LOG
     if(send_command_hook_id < 0)
-      FILE_GLOBAL_WRITE_LEN("Failed to init send_command_hook");
+      FILE_GLOBAL_WRITE_LEN("Failed to init send_command_hook\n");
     else
-      FILE_GLOBAL_WRITE_LEN("Init send_command_hook");
+      FILE_GLOBAL_WRITE_LEN("Init send_command_hook\n");
     #endif
   }
 
@@ -160,9 +160,9 @@ int deinitialize_hooks_virtual_mmc()
     
     #ifdef ENABLE_DEBUG_LOG
     if(res < 0)
-      FILE_GLOBAL_WRITE_LEN("Failed to deinit gc_cmd56_handshake_hook");
+      FILE_GLOBAL_WRITE_LEN("Failed to deinit gc_cmd56_handshake_hook\n");
     else
-      FILE_GLOBAL_WRITE_LEN("Deinit gc_cmd56_handshake_hook");
+      FILE_GLOBAL_WRITE_LEN("Deinit gc_cmd56_handshake_hook\n");
     #endif
 
     gc_cmd56_handshake_hook_id = -1;
@@ -174,9 +174,9 @@ int deinitialize_hooks_virtual_mmc()
 
     #ifdef ENABLE_DEBUG_LOG
     if(res < 0)
-      FILE_GLOBAL_WRITE_LEN("Failed to deinit mmc_read_hook");
+      FILE_GLOBAL_WRITE_LEN("Failed to deinit mmc_read_hook\n");
     else
-      FILE_GLOBAL_WRITE_LEN("Deinit mmc_read_hook");
+      FILE_GLOBAL_WRITE_LEN("Deinit mmc_read_hook\n");
     #endif
 
     mmc_read_hook_id = -1;
@@ -188,9 +188,9 @@ int deinitialize_hooks_virtual_mmc()
 
     #ifdef ENABLE_DEBUG_LOG
     if(res < 0)
-      FILE_GLOBAL_WRITE_LEN("Failed to deinit send_command_hook");
+      FILE_GLOBAL_WRITE_LEN("Failed to deinit send_command_hook\n");
     else
-      FILE_GLOBAL_WRITE_LEN("Deinit send_command_hook");
+      FILE_GLOBAL_WRITE_LEN("Deinit send_command_hook\n");
     #endif
 
     send_command_hook_id = -1;

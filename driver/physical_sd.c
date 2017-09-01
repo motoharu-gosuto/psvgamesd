@@ -92,9 +92,9 @@ int initialize_hooks_physical_sd()
     
     #ifdef ENABLE_DEBUG_LOG
     if(sd_read_hook_id < 0)
-      FILE_GLOBAL_WRITE_LEN("Failed to init sd_read_hook");
+      FILE_GLOBAL_WRITE_LEN("Failed to init sd_read_hook\n");
     else
-      FILE_GLOBAL_WRITE_LEN("Init sd_read_hook");
+      FILE_GLOBAL_WRITE_LEN("Init sd_read_hook\n");
     #endif
     
     //patch for proc_initialize_generic_2 - so that sd card type is not ignored
@@ -103,9 +103,9 @@ int initialize_hooks_physical_sd()
 
     #ifdef ENABLE_DEBUG_LOG
     if(gen_init_2_patch_uid < 0)
-      FILE_GLOBAL_WRITE_LEN("Failed to init gen_init_2_patch");
+      FILE_GLOBAL_WRITE_LEN("Failed to init gen_init_2_patch\n");
     else
-      FILE_GLOBAL_WRITE_LEN("Init gen_init_2_patch");
+      FILE_GLOBAL_WRITE_LEN("Init gen_init_2_patch\n");
     #endif
   }
 
@@ -120,9 +120,9 @@ int initialize_hooks_physical_sd()
 
     #ifdef ENABLE_DEBUG_LOG
     if(hs_dis_patch1_uid < 0)
-      FILE_GLOBAL_WRITE_LEN("Failed to init hs_dis_patch1");
+      FILE_GLOBAL_WRITE_LEN("Failed to init hs_dis_patch1\n");
     else
-      FILE_GLOBAL_WRITE_LEN("Init hs_dis_patch1");
+      FILE_GLOBAL_WRITE_LEN("Init hs_dis_patch1\n");
     #endif
 
     //this patch modifies CMD6 argument to set low speed mode instead of high speed mode
@@ -131,9 +131,9 @@ int initialize_hooks_physical_sd()
 
     #ifdef ENABLE_DEBUG_LOG
     if(hs_dis_patch2_uid < 0)
-      FILE_GLOBAL_WRITE_LEN("Failed to init hs_dis_patch2");
+      FILE_GLOBAL_WRITE_LEN("Failed to init hs_dis_patch2\n");
     else
-      FILE_GLOBAL_WRITE_LEN("Init hs_dis_patch2");
+      FILE_GLOBAL_WRITE_LEN("Init hs_dis_patch2\n");
     #endif
 
     #endif
@@ -144,9 +144,9 @@ int initialize_hooks_physical_sd()
 
     #ifdef ENABLE_DEBUG_LOG
     if(init_sd_hook_id < 0)
-      FILE_GLOBAL_WRITE_LEN("Failed to init init_sd_hook");
+      FILE_GLOBAL_WRITE_LEN("Failed to init init_sd_hook\n");
     else
-      FILE_GLOBAL_WRITE_LEN("Init init_sd_hook");
+      FILE_GLOBAL_WRITE_LEN("Init init_sd_hook\n");
     #endif
 
     //this hooks command send function which is the main function for executing all commands that are sent from Vita to SD/MMC devices
@@ -155,9 +155,9 @@ int initialize_hooks_physical_sd()
 
     #ifdef ENABLE_DEBUG_LOG
     if(send_command_hook_id < 0)
-      FILE_GLOBAL_WRITE_LEN("Failed to init send_command_hook");
+      FILE_GLOBAL_WRITE_LEN("Failed to init send_command_hook\n");
     else
-      FILE_GLOBAL_WRITE_LEN("Init send_command_hook");
+      FILE_GLOBAL_WRITE_LEN("Init send_command_hook\n");
     #endif
   }
 
@@ -172,9 +172,9 @@ int deinitialize_hooks_physical_sd()
     
     #ifdef ENABLE_DEBUG_LOG
     if(res < 0)
-      FILE_GLOBAL_WRITE_LEN("Failed to deinit sd_read_hook");
+      FILE_GLOBAL_WRITE_LEN("Failed to deinit sd_read_hook\n");
     else
-      FILE_GLOBAL_WRITE_LEN("Deinit sd_read_hook");
+      FILE_GLOBAL_WRITE_LEN("Deinit sd_read_hook\n");
     #endif
 
     sd_read_hook_id = -1;
@@ -186,9 +186,9 @@ int deinitialize_hooks_physical_sd()
 
     #ifdef ENABLE_DEBUG_LOG
     if(res < 0)
-      FILE_GLOBAL_WRITE_LEN("Failed to deinit gen_init_2_patch");
+      FILE_GLOBAL_WRITE_LEN("Failed to deinit gen_init_2_patch\n");
     else
-      FILE_GLOBAL_WRITE_LEN("Deinit gen_init_2_patch");
+      FILE_GLOBAL_WRITE_LEN("Deinit gen_init_2_patch\n");
     #endif
 
     gen_init_2_patch_uid = -1;
@@ -200,9 +200,9 @@ int deinitialize_hooks_physical_sd()
 
     #ifdef ENABLE_DEBUG_LOG
     if(res < 0)
-      FILE_GLOBAL_WRITE_LEN("Failed to deinit hs_dis_patch1");
+      FILE_GLOBAL_WRITE_LEN("Failed to deinit hs_dis_patch1\n");
     else
-      FILE_GLOBAL_WRITE_LEN("Deinit hs_dis_patch1");
+      FILE_GLOBAL_WRITE_LEN("Deinit hs_dis_patch1\n");
     #endif
 
     hs_dis_patch1_uid = -1;
@@ -214,9 +214,9 @@ int deinitialize_hooks_physical_sd()
 
     #ifdef ENABLE_DEBUG_LOG
     if(res < 0)
-      FILE_GLOBAL_WRITE_LEN("Failed to deinit hs_dis_patch2");
+      FILE_GLOBAL_WRITE_LEN("Failed to deinit hs_dis_patch2\n");
     else
-      FILE_GLOBAL_WRITE_LEN("Deinit hs_dis_patch2");
+      FILE_GLOBAL_WRITE_LEN("Deinit hs_dis_patch2\n");
     #endif
 
     hs_dis_patch2_uid = -1;
@@ -228,9 +228,9 @@ int deinitialize_hooks_physical_sd()
 
     #ifdef ENABLE_DEBUG_LOG
     if(res < 0)
-      FILE_GLOBAL_WRITE_LEN("Failed to deinit init_sd_hook");
+      FILE_GLOBAL_WRITE_LEN("Failed to deinit init_sd_hook\n");
     else
-      FILE_GLOBAL_WRITE_LEN("Deinit init_sd_hook");
+      FILE_GLOBAL_WRITE_LEN("Deinit init_sd_hook\n");
     #endif
 
     init_sd_hook_id = -1;
@@ -242,9 +242,9 @@ int deinitialize_hooks_physical_sd()
 
     #ifdef ENABLE_DEBUG_LOG
     if(res < 0)
-      FILE_GLOBAL_WRITE_LEN("Failed to deinit send_command_hook");
+      FILE_GLOBAL_WRITE_LEN("Failed to deinit send_command_hook\n");
     else
-      FILE_GLOBAL_WRITE_LEN("Deinit send_command_hook");
+      FILE_GLOBAL_WRITE_LEN("Deinit send_command_hook\n");
     #endif
 
     send_command_hook_id = -1;
