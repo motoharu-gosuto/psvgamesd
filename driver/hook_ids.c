@@ -32,3 +32,6 @@ SceUID clear_sensitive_data_hook_id = -1;
 SceUID insert_handler_patch_id = -1;
 
 SceUID remove_handler_patch_id = -1;
+
+tai_hook_ref_t sys_wide_time_hook_ref;
+SceUID sys_wide_time_hook_id = -1;

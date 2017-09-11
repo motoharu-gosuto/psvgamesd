@@ -39,3 +39,6 @@ extern SceUID clear_sensitive_data_hook_id;
 extern SceUID insert_handler_patch_id;
 
 extern SceUID remove_handler_patch_id;
+
+extern tai_hook_ref_t sys_wide_time_hook_ref;
+extern SceUID sys_wide_time_hook_id;
