@@ -95,6 +95,11 @@ typedef struct cmd_input // size is 0x240
                          //  - contains unknown data (zeroes)
 } cmd_input;
 
+typedef struct fast_mutex
+{
+   char data[0x40];
+}fast_mutex;
+
 typedef struct sd_context_data // size is 0xC0
 {
     struct cmd_input* cmd_ptr;
@@ -121,28 +126,11 @@ typedef struct sd_context_data // size is 0xC0
     SceUID uid_1000; // UID of SceSdif (0,1,2) memblock of size 0x1000
 
     SceUID evid; // event id SceSdif0, SceSdif1, SceSdif2 (SceSdif3 ?)
-    uint32_t sdif_fast_mutex; // SceSdif0, SceSdif1, SceSdif2 (SceSdif3 ?)
-    uint32_t unk_48;
-    uint32_t unk_4C;
-
-    uint32_t unk_50;
-    uint32_t unk_54;
-    uint32_t unk_58;
-    uint32_t unk_5C;
-
-    uint32_t unk_60;
-    uint32_t unk_64;
-    uint32_t unk_68;
-    uint32_t unk_6C;
-
-    uint32_t unk_70;
-    uint32_t unk_74;
-    uint32_t unk_78;
-    uint32_t unk_7C;
-
+    
+    fast_mutex sdif_fast_mutex; // SceSdif0, SceSdif1, SceSdif2 (SceSdif3 ?)
+        
     //it looks like this chunk is separate structure since offset 0x2480 is used too often
-
-    uint32_t unk_80;
+    
     SceUID uid_10000; // UID of SceSdif (0,1,2) memblock of size 0x10000
     void* membase_10000; // membase of SceSdif (0,1,2) memblock of size 0x10000
     uint32_t unk_8C;
@@ -203,9 +191,11 @@ typedef struct sd_context_part_wlanbt // size is 0x398
    uint8_t data[0x394];
 } sd_context_part_wlanbt;
 
+#define COMMAND_CYCLIC_BUFFER_SIZE 16
+
 typedef struct sd_context_global // size is 0x24C0
 {
-    struct cmd_input commands[16];
+    struct cmd_input commands[COMMAND_CYCLIC_BUFFER_SIZE];
     struct sd_context_data ctx_data;
 } sd_context_global;
 
