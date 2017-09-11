@@ -56,18 +56,16 @@ int send_command_hook(sd_context_global* ctx, cmd_input* cmd_data1, cmd_input* c
       cmd_data1->argument = cmd_data1->argument + ADDRESS_OFFSET; //fixup address. I have no idea why I should do it
     }
 
-    #ifdef ENABLE_DEBUG_LOG
+    #ifdef ENABLE_COMMAND_DEBUG_LOG
     snprintf(sprintfBuffer, 256, "enter CMD%d \n", cmd_data1->command);
     FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
-    #endif
-    
-    #ifdef ENABLE_DEBUG_LOG
+
     print_cmd(cmd_data1, 1, "before");
     #endif
 
     int res = TAI_CONTINUE(int, send_command_hook_ref, ctx, cmd_data1, cmd_data2, nIter, num);
 
-    #ifdef ENABLE_DEBUG_LOG
+    #ifdef ENABLE_COMMAND_DEBUG_LOG
     snprintf(sprintfBuffer, 256, "exit CMD%d \n", cmd_data1->command);
     FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
     #endif
