@@ -3,6 +3,9 @@ Set of tools to run PS Vita game dumps from SD card or from binary image
 
 # Introduction
 
+WARNING: THIS README IS VERY OLD. MOST OF THE ISSUES (IF ANY), THAT ARE DESCRIBED, ARE ALREADY FIXED.
+I WILL UPDATE INVORMATION SOON.
+
 Just a small note before you will try to use these tools.
 Currently game dumps can be run both from SD card and from binary dump.
 Binary dumps are now run by emulating MMC card hardware (kinda iso driver).
