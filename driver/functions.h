@@ -13,10 +13,18 @@ typedef int (sceKernelWaitCondForDriver_t)(SceUID condId, unsigned int *timeout)
 typedef int (sceKernelSignalCondForDriver_t)(SceUID condId);
 typedef int (sceKernelSha1DigestForDriver_t)(char* in, int size, char* digest);
 
+typedef int (sceKernelInitializeFastMutexForDriver_t)(fast_mutex* mutex, const char *name);
+typedef int (sceKernelDeleteFastMutexForDriver_t)(fast_mutex* mutex);
+typedef int (sceKernelGetMutexInfoForDriver_t)(SceUID mutexid, SceKernelMutexInfo *info);
+
 extern sceKernelCreateCondForDriver_t* sceKernelCreateCondForDriver;
 extern sceKernelDeleteCondForDriver_t* sceKernelDeleteCondForDriver;
 extern sceKernelWaitCondForDriver_t* sceKernelWaitCondForDriver;
 extern sceKernelSignalCondForDriver_t* sceKernelSignalCondForDriver;
 extern sceKernelSha1DigestForDriver_t* sceKernelSha1DigestForDriver;
+
+extern sceKernelInitializeFastMutexForDriver_t* sceKernelInitializeFastMutexForDriver;
+extern sceKernelDeleteFastMutexForDriver_t* sceKernelDeleteFastMutexForDriver;
+extern sceKernelGetMutexInfoForDriver_t* sceKernelGetMutexInfoForDriver;
 
 int initialize_functions();

@@ -14,6 +14,10 @@ sceKernelWaitCondForDriver_t* sceKernelWaitCondForDriver = 0;
 sceKernelSignalCondForDriver_t* sceKernelSignalCondForDriver = 0;
 sceKernelSha1DigestForDriver_t* sceKernelSha1DigestForDriver = 0;
 
+sceKernelInitializeFastMutexForDriver_t* sceKernelInitializeFastMutexForDriver = 0;
+sceKernelDeleteFastMutexForDriver_t* sceKernelDeleteFastMutexForDriver = 0;
+sceKernelGetMutexInfoForDriver_t* sceKernelGetMutexInfoForDriver = 0;
+
 int initialize_functions()
 {
   int res = module_get_export_func(KERNEL_PID, "SceKernelThreadMgr", SceThreadmgrForDriver_NID, 0xDB6CD34A, (uintptr_t*)&sceKernelCreateCondForDriver);
@@ -84,6 +88,48 @@ int initialize_functions()
 
   #ifdef ENABLE_DEBUG_LOG
   FILE_GLOBAL_WRITE_LEN("set sceKernelSha1DigestForDriver\n");
+  #endif
+
+  res = module_get_export_func(KERNEL_PID, "SceKernelThreadMgr", SceThreadmgrForDriver_NID, 0xaf8e1266, (uintptr_t*)&sceKernelInitializeFastMutexForDriver);
+  if(res < 0)
+  {
+    #ifdef ENABLE_DEBUG_LOG
+    snprintf(sprintfBuffer, 256, "failed to get sceKernelInitializeFastMutexForDriver : %x\n", res);
+    FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
+    #endif
+    return -1;
+  }
+
+  #ifdef ENABLE_DEBUG_LOG
+  FILE_GLOBAL_WRITE_LEN("set sceKernelInitializeFastMutexForDriver\n");
+  #endif
+
+  res = module_get_export_func(KERNEL_PID, "SceKernelThreadMgr", SceThreadmgrForDriver_NID, 0x11fe84a1, (uintptr_t*)&sceKernelDeleteFastMutexForDriver);
+  if(res < 0)
+  {
+    #ifdef ENABLE_DEBUG_LOG
+    snprintf(sprintfBuffer, 256, "failed to get sceKernelDeleteFastMutexForDriver : %x\n", res);
+    FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
+    #endif
+    return -1;
+  }
+
+  #ifdef ENABLE_DEBUG_LOG
+  FILE_GLOBAL_WRITE_LEN("set sceKernelDeleteFastMutexForDriver\n");
+  #endif
+
+  res = module_get_export_func(KERNEL_PID, "SceKernelThreadMgr", SceThreadmgrForDriver_NID, 0x69B78A12, (uintptr_t*)&sceKernelGetMutexInfoForDriver);
+  if(res < 0)
+  {
+    #ifdef ENABLE_DEBUG_LOG
+    snprintf(sprintfBuffer, 256, "failed to get sceKernelGetMutexInfoForDriver : %x\n", res);
+    FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
+    #endif
+    return -1;
+  }
+
+  #ifdef ENABLE_DEBUG_LOG
+  FILE_GLOBAL_WRITE_LEN("set sceKernelGetMutexInfoForDriver\n");
   #endif
 
   return 0;
