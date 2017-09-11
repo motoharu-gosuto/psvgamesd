@@ -28,29 +28,27 @@ fast_mutex* get_gc_mutex()
   return ctx_mutex;
 }
 
+//this patch is designed to disable glitchy global SceSdif1 mutex
+//I am not sure what exactly happens but at some point this mutex breaks
+//and this causes deadlock during read operation
+//I tried to replace fast_mutex with standard RECOURSIVE mutex (important)
+//but i get the same results.
+//so currently the mutex is disabled and 0 is returned
 int fast_mutex_lock_hook(fast_mutex* mutex)
 {
   if(mutex == get_gc_mutex())
   {
+    /*
     int res = ksceKernelLockMutex(SceSdif1_lock, 1, 0);
     if(res < 0)
     {
       snprintf(sprintfBuffer, 256, "failed to LOCK %x\n", res);
       FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
     }
-    return 0;
-
-    /*
-    FILE_GLOBAL_WRITE_LEN("LOCK GC MUTEX (enter)\n");
-
-    //int res = TAI_CONTINUE(int, fast_mutex_lock_hook_ref, mutex);
-    int res = ksceKernelLockMutex(SceSdif1_lock, 1, 0);
-
-    snprintf(sprintfBuffer, 256, "LOCK GC MUTEX (exit) %x\n", res);
-    FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
-
     return res;
     */
+
+    return 0;
   }
   else
   {
@@ -59,29 +57,27 @@ int fast_mutex_lock_hook(fast_mutex* mutex)
   }
 }
 
+//this patch is designed to disable glitchy global SceSdif1 mutex
+//I am not sure what exactly happens but at some point this mutex breaks
+//and this causes deadlock during read operation
+//I tried to replace fast_mutex with standard RECOURSIVE mutex (important)
+//but i get the same results.
+//so currently the mutex is disabled and 0 is returned
 int fast_mutex_unlock_hook(fast_mutex* mutex)
 {
   if(mutex == get_gc_mutex())
   {
+    /*
     int res = ksceKernelUnlockMutex(SceSdif1_lock, 1);
     if(res < 0)
     {
       snprintf(sprintfBuffer, 256, "failed to UNLOCK %x\n", res);
       FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
     }
-    return 0;
-
-    /*
-    FILE_GLOBAL_WRITE_LEN("UNLOCK GC MUTEX (enter)\n");
-
-    //int res = TAI_CONTINUE(int, fast_mutex_unlock_hook_ref, mutex);
-    int res = ksceKernelUnlockMutex(SceSdif1_lock, 1);
-
-    snprintf(sprintfBuffer, 256, "UNLOCK GC MUTEX (exit) %x\n", res);
-    FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
-
     return res;
     */
+
+    return 0;
   }
   else
   {
