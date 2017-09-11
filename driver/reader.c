@@ -314,15 +314,29 @@ int deinitialize_read_threading()
     readThreadId = -1;
   }
 
-  sceKernelDeleteCondForDriver(req_cond);
-  req_cond = -1;
-  sceKernelDeleteCondForDriver(resp_cond);
-  resp_cond = -1;
+  if(req_cond >= 0)
+  {
+    sceKernelDeleteCondForDriver(req_cond);
+    req_cond = -1;
+  }
+  
+  if(resp_cond >= 0)
+  {
+    sceKernelDeleteCondForDriver(resp_cond);
+    resp_cond = -1;
+  }
 
-  ksceKernelDeleteMutex(req_lock);
-  req_lock = -1;
-  ksceKernelDeleteMutex(resp_lock);
-  resp_lock = -1;
+  if(req_lock >= 0)
+  {
+    ksceKernelDeleteMutex(req_lock);
+    req_lock = -1;
+  }
+
+  if(resp_lock >= 0)
+  {
+    ksceKernelDeleteMutex(resp_lock);
+    resp_lock = -1;
+  }
 
   return 0;
 }

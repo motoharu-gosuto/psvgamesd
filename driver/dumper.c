@@ -521,22 +521,47 @@ int deinitialize_dump_threading()
     g_dumpPollThreadId = -1;
   }
 
-  sceKernelDeleteCondForDriver(dump_req_cond);
-  dump_req_cond = -1;
-  sceKernelDeleteCondForDriver(dump_resp_cond);
-  dump_resp_cond = -1;
+  if(dump_req_cond >= 0)
+  {
+    sceKernelDeleteCondForDriver(dump_req_cond);
+    dump_req_cond = -1;
+  }
 
-  ksceKernelDeleteMutex(dump_req_lock);
-  dump_req_lock = -1;
-  ksceKernelDeleteMutex(dump_resp_lock);
-  dump_resp_lock = -1;
+  if(dump_resp_cond >= 0)
+  {
+    sceKernelDeleteCondForDriver(dump_resp_cond);
+    dump_resp_cond = -1;
+  }
 
-  ksceKernelDeleteMutex(g_total_sectors_mutex_id);
-  g_total_sectors_mutex_id = -1;
-  ksceKernelDeleteMutex(g_progress_sectors_mutex_id);
-  g_progress_sectors_mutex_id = -1;
-  ksceKernelDeleteMutex(g_running_state_mutex_id);
-  g_running_state_mutex_id = -1;
+  if(dump_req_lock >= 0)
+  {
+    ksceKernelDeleteMutex(dump_req_lock);
+    dump_req_lock = -1;
+  }
+
+  if(dump_resp_lock >= 0)
+  {
+    ksceKernelDeleteMutex(dump_resp_lock);
+    dump_resp_lock = -1;
+  }
+
+  if(g_total_sectors_mutex_id >= 0)
+  {
+    ksceKernelDeleteMutex(g_total_sectors_mutex_id);
+    g_total_sectors_mutex_id = -1;
+  }
+
+  if(g_progress_sectors_mutex_id >= 0)
+  {
+    ksceKernelDeleteMutex(g_progress_sectors_mutex_id);
+    g_progress_sectors_mutex_id = -1;
+  }
+
+  if(g_running_state_mutex_id >= 0)
+  {
+    ksceKernelDeleteMutex(g_running_state_mutex_id);
+    g_running_state_mutex_id = -1;
+  }
 
   return 0;
 }
