@@ -17,15 +17,21 @@ int mmc_read_hook_through(void* ctx_part, int	sector,	char* buffer, int nSectors
     //can add debug code here
 
     #ifdef ENABLE_DEBUG_LOG
+    // this log will cause deadlock when game is started
+    /* 
     snprintf(sprintfBuffer, 256, "enter mmc read sector %x nSectors %x\n", sector, nSectors);
     FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
+    */
     #endif
 
     int res = TAI_CONTINUE(int, mmc_read_hook_ref, ctx_part, sector, buffer, nSectors);
 
     #ifdef ENABLE_DEBUG_LOG
+    // this log will cause deadlock when game is started
+    /*
     snprintf(sprintfBuffer, 256, "exit mmc read sector %x nSectors %x\n", sector, nSectors);
     FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
+    */
     #endif
 
     return res;
