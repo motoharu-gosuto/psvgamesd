@@ -1,7 +1,12 @@
 #include "utils.h"
 
+#include <psp2kern/kernel/modulemgr.h>
+#include <psp2kern/kernel/threadmgr.h>
 #include <psp2kern/types.h>
 #include <psp2kern/io/fcntl.h>
+
+#include <taihen.h>
+#include <module.h>
 
 #include <stdio.h>
 #include <string.h>
@@ -9,6 +14,8 @@
 
 #include "global_log.h"
 #include "defines.h"
+#include "sector_api.h"
+#include "functions.h"
 
 void CMD_BIN_LOG(char* data, int size)
 {
@@ -117,3 +124,110 @@ int print_cmd(cmd_input* cmd_data, int n,  char* when)
 
     return 0;
 }
+
+int print_SceSdif1_lock_info(SceUID mutex)
+{
+  if(mutex >= 0)
+  {
+    SceKernelMutexInfo info;
+    memset(&info, 0, sizeof(SceKernelMutexInfo));
+    info.size = sizeof(SceKernelMutexInfo);
+
+    int res = sceKernelGetMutexInfoForDriver(mutex, &info);
+
+    #ifdef ENABLE_DEBUG_LOG
+    if(res >= 0)
+    {
+      snprintf(sprintfBuffer, 256, "name: %s\n", info.name);
+      FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
+
+      snprintf(sprintfBuffer, 256, "attr: %x\n", info.attr);
+      FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
+
+      snprintf(sprintfBuffer, 256, "initCount: %x\n", info.initCount);
+      FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
+
+      snprintf(sprintfBuffer, 256, "currentCount: %x\n", info.currentCount);
+      FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
+
+      snprintf(sprintfBuffer, 256, "currentOwnerId: %x\n", info.currentOwnerId);
+      FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
+
+      snprintf(sprintfBuffer, 256, "numWaitThreads: %x\n", info.numWaitThreads);
+      FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
+    }
+    else
+    {
+      snprintf(sprintfBuffer, 256, "Failed to get mutex info %x\n", res);
+      FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
+    }
+    #endif
+  }
+
+  return 0;
+}
+
+int dumpSegment(SceKernelModuleInfo* minfo, int index)
+{
+  if(minfo->segments <= 0)
+    return -1;
+  
+  if (minfo->segments[index].vaddr <= 0) 
+  {
+    FILE_GLOBAL_WRITE_LEN("segment is empty\n");
+    return -1;
+  }
+  
+  {
+    snprintf(sprintfBuffer, 256, "%d %x %x\n", index, minfo->segments[index].vaddr, minfo->segments[index].memsz);
+    FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
+  }
+  
+  char filename[100] = {0};
+  char moduleNameCopy[30] = {0};
+  snprintf(moduleNameCopy, 30, minfo->module_name);
+  snprintf(filename, 100, "ux0:dump/0x%08x_%s_%d.bin", (unsigned)minfo->segments[index].vaddr, moduleNameCopy, index);
+
+  {
+    snprintf(sprintfBuffer, 256, "%s\n", filename);
+    FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
+  }
+  
+  SceUID fout = ksceIoOpen(filename, SCE_O_CREAT | SCE_O_TRUNC | SCE_O_WRONLY, 0777);
+  
+  if(fout < 0)
+     return -1;
+  
+  if(minfo->segments[index].memsz > 0)
+  {
+    ksceIoWrite(fout, minfo->segments[index].vaddr, minfo->segments[index].memsz);
+  }
+  
+  ksceIoClose(fout);
+  
+  return 0;
+}
+
+int dump_sdif_data()
+{
+  tai_module_info_t sdif_info;
+  sdif_info.size = sizeof(tai_module_info_t);
+  if (taiGetModuleInfoForKernel(KERNEL_PID, "SceSdif", &sdif_info) >= 0)
+  {
+    SceKernelModuleInfo minfo;
+    minfo.size = sizeof(SceKernelModuleInfo);
+    int ret = ksceKernelGetModuleInfo(KERNEL_PID, sdif_info.modid, &minfo);
+    if(ret >= 0)
+    {
+      FILE_GLOBAL_WRITE_LEN("ready to dump sdif data seg\n");
+      
+      dumpSegment(&minfo, 1);
+    }
+    else
+    {
+      FILE_GLOBAL_WRITE_LEN("can not dump sdif data seg\n");
+    }
+  }
+  
+  return 0;
+} 
