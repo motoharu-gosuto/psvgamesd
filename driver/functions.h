@@ -1,6 +1,9 @@
 #pragma once
 
 #include <psp2kern/types.h>
+#include <psp2kern/kernel/threadmgr.h>
+
+#include "sector_api.h"
 
 typedef struct SceKernelCondOptParam 
 {
