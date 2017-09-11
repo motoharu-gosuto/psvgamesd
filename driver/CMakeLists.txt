@@ -44,6 +44,7 @@ add_executable(psvgamesd
   sd_emu.c
   ins_rem_card.c
   reg_common.c
+  global_hooks.c
 )
 
 target_link_libraries(psvgamesd

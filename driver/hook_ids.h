@@ -42,3 +42,9 @@ extern SceUID remove_handler_patch_id;
 
 extern tai_hook_ref_t sys_wide_time_hook_ref;
 extern SceUID sys_wide_time_hook_id;
+
+extern tai_hook_ref_t fast_mutex_lock_hook_ref;
+extern SceUID fast_mutex_lock_hook_id;
+
+extern tai_hook_ref_t fast_mutex_unlock_hook_ref;
+extern SceUID fast_mutex_unlock_hook_id;
