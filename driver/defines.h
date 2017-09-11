@@ -3,4 +3,5 @@
 //enables patch for low speed cards
 //#define ENABLE_SD_LOW_SPEED_PATCH 
 
-//#define ENABLE_DEBUG_LOG
+#define ENABLE_DEBUG_LOG
+#define ENABLE_COMMAND_DEBUG_LOG

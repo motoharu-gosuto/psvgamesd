@@ -51,6 +51,7 @@ int print_cmd(cmd_input* cmd_data, int n,  char* when)
     snprintf(sprintfBuffer, 256, "argument: %x\n", cmd_data->argument);
     FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
 
+    /*
     snprintf(sprintfBuffer, 256, "buffer: %x\n", cmd_data->buffer);
     FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
 
@@ -80,7 +81,9 @@ int print_cmd(cmd_input* cmd_data, int n,  char* when)
 
     snprintf(sprintfBuffer, 256, "size_1A4: %x\n", cmd_data->size_1A4);
     FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
+    */
 
+    /*
     if((((int)cmd_data->state_flags) << 0x15) < 0)
     {
       FILE_GLOBAL_WRITE_LEN("INVALIDATE\n");
@@ -91,12 +94,15 @@ int print_cmd(cmd_input* cmd_data, int n,  char* when)
 
       //print_bytes(cmd_data->base_198 + cmd_data->offset_19C, cmd_data->size_1A4);
     }
+    */
 
+    /*
     if(((0x801 << 9) & cmd_data->state_flags) != 0)
       FILE_GLOBAL_WRITE_LEN("SKIP INVALIDATE\n");
 
     if((((int)cmd_data->state_flags) << 0xB) < 0)
      FILE_GLOBAL_WRITE_LEN("FREE mem_188\n");
+    */
 
     //print_bytes(cmd_data->response, 0x10);
 

@@ -10,6 +10,7 @@
  #include "sd_emu.h"
  #include "cmd56_key.h"
  #include "ins_rem_card.h"
+ #include "utils.h"
 
  #include "defines.h"
 
@@ -73,6 +74,10 @@ int send_command_hook_emu(sd_context_global* ctx, cmd_input* cmd_data1, cmd_inpu
   if(ksceSdifGetSdContextGlobal(SCE_SDIF_DEV_GAME_CARD) == ctx)
   {
     //can add debug code here
+    
+    #ifdef ENABLE_COMMAND_DEBUG_LOG
+    print_cmd(cmd_data1, 1, "before");
+    #endif
     
     int res = emulate_sd_command(ctx, cmd_data1, cmd_data2, nIter, num);
 

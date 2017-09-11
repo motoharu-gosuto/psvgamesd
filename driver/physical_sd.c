@@ -18,8 +18,19 @@ int sd_read_hook_through(void* ctx_part, int sector, char* buffer, int nSectors)
   //make sure that only sd operations are redirected
   if(ksceSdifGetSdContextGlobal(SCE_SDIF_DEV_GAME_CARD) == ((sd_context_part_base*)ctx_part)->gctx_ptr)
   {
+    #ifdef ENABLE_DEBUG_LOG
+    snprintf(sprintfBuffer, 256, "enter sd read sector %x nSectors %x\n", sector, nSectors);
+    FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
+    #endif
+    
     //can add debug code here
     int res = TAI_CONTINUE(int, sd_read_hook_ref, ctx_part, sector, buffer, nSectors);
+
+    #ifdef ENABLE_DEBUG_LOG
+    snprintf(sprintfBuffer, 256, "exit sd read sector %x nSectors %x\n", sector, nSectors);
+    FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
+    #endif
+
     return res;
   }
   else
@@ -45,7 +56,22 @@ int send_command_hook(sd_context_global* ctx, cmd_input* cmd_data1, cmd_input* c
       cmd_data1->argument = cmd_data1->argument + ADDRESS_OFFSET; //fixup address. I have no idea why I should do it
     }
 
+    #ifdef ENABLE_DEBUG_LOG
+    snprintf(sprintfBuffer, 256, "enter CMD%d \n", cmd_data1->command);
+    FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
+    #endif
+    
+    #ifdef ENABLE_DEBUG_LOG
+    print_cmd(cmd_data1, 1, "before");
+    #endif
+
     int res = TAI_CONTINUE(int, send_command_hook_ref, ctx, cmd_data1, cmd_data2, nIter, num);
+
+    #ifdef ENABLE_DEBUG_LOG
+    snprintf(sprintfBuffer, 256, "exit CMD%d \n", cmd_data1->command);
+    FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
+    #endif
+
     return res;
   }
   else
