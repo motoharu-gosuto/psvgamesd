@@ -13,14 +13,20 @@
 #include "sector_api.h"
 #include "mmc_emu.h"
 #include "ins_rem_card.h"
+#include "media_id_emu.h"
 #include "defines.h"
 
 //redirect read operations to separate thread
-int mmc_read_hook_threaded(void* ctx_part, int	sector,	char* buffer, int nSectors)
+int mmc_read_hook_threaded(void* ctx_part, int sector,	char* buffer, int nSectors)
 {
   //make sure that only mmc operations are redirected
   if(ksceSdifGetSdContextGlobal(SCE_SDIF_DEV_GAME_CARD) == ((sd_context_part_base*)ctx_part)->gctx_ptr)
   {
+    //check if media-id read is requested
+    int media_id_res = read_media_id(sector, buffer, nSectors);
+    if(media_id_res > 0)
+      return 0;
+
     g_ctx_part = ctx_part;
     g_sector = sector;
     g_buffer = buffer;
@@ -64,6 +70,28 @@ int mmc_read_hook_threaded(void* ctx_part, int	sector,	char* buffer, int nSector
   else
   {
     int res = TAI_CONTINUE(int, mmc_read_hook_ref, ctx_part, sector, buffer, nSectors);
+    return res;
+  }
+}
+
+int mmc_write_hook(void* ctx_part, int sector, char* buffer, int nSectors)
+{
+  //make sure that only mmc operations are redirected
+  if(ksceSdifGetSdContextGlobal(SCE_SDIF_DEV_GAME_CARD) == ((sd_context_part_base*)ctx_part)->gctx_ptr)
+  {
+    int media_id_res = write_media_id(sector, buffer, nSectors);
+    if(media_id_res > 0)
+      return 0;
+
+    #ifdef ENABLE_DEBUG_LOG
+    FILE_GLOBAL_WRITE_LEN("Write operation is not supported\n");
+    #endif
+
+    return 0;
+  }
+  else
+  {
+    int res = TAI_CONTINUE(int, mmc_write_hook_ref, ctx_part, sector, buffer, nSectors);
     return res;
   }
 }
@@ -131,6 +159,45 @@ int initialize_hooks_virtual_mmc()
     else
       FILE_GLOBAL_WRITE_LEN("Init mmc_read_hook\n");
     #endif
+
+    mmc_write_hook_id = taiHookFunctionImportForKernel(KERNEL_PID, &mmc_write_hook_ref, "SceSdstor", SceSdifForDriver_NID, 0x175543d2, mmc_write_hook);
+    
+    #ifdef ENABLE_DEBUG_LOG
+    if(mmc_write_hook_id < 0)
+      FILE_GLOBAL_WRITE_LEN("Failed to init mmc_write_hook\n");
+    else
+      FILE_GLOBAL_WRITE_LEN("Init mmc_write_hook\n");
+    #endif
+
+    char zeroCallOnePatch[4] = {0x01, 0x20, 0x00, 0xBF};
+
+    //this patch enables card CID check instead of default 
+    //gcd-lp-act-mediaid check with requires MBR and raw partition
+    //in case of virtual mode it also requires emulation of write operations
+    //WARNING: this patch partially fixes suspend/resume problem but there is still some glitch
+    
+    //suspend_cid_check_patch_id = taiInjectDataForKernel(KERNEL_PID, sdstor_info.modid, 0, 0x4A1C, zeroCallOnePatch, 4); //patch (BLX) to (MOVS R0, #1 ; NOP)
+
+    #ifdef ENABLE_DEBUG_LOG
+    if(suspend_cid_check_patch_id < 0)
+      FILE_GLOBAL_WRITE_LEN("Failed to init suspend_cid_check_patch\n");
+    else
+      FILE_GLOBAL_WRITE_LEN("Init suspend_cid_check_patch\n");
+    #endif
+
+    //this patch enables card CID check instead of default 
+    //gcd-lp-act-mediaid check with requires MBR and raw partition
+    //in case of virtual mode it also requires emulation of write operations
+    //WARNING: this patch partially fixes suspend/resume problem but there is still some glitch
+    
+    //resume_cid_check_patch_id =  taiInjectDataForKernel(KERNEL_PID, sdstor_info.modid, 0, 0x4B6E, zeroCallOnePatch, 4); //patch (BLX) to (MOVS R0, #1 ; NOP)
+
+    #ifdef ENABLE_DEBUG_LOG
+    if(resume_cid_check_patch_id < 0)
+      FILE_GLOBAL_WRITE_LEN("Failed to init resume_cid_check_patch\n");
+    else
+      FILE_GLOBAL_WRITE_LEN("Init resume_cid_check_patch\n");
+    #endif
   }
 
   tai_module_info_t sdif_info;
@@ -180,6 +247,48 @@ int deinitialize_hooks_virtual_mmc()
     #endif
 
     mmc_read_hook_id = -1;
+  }
+
+  if(mmc_write_hook_id >= 0)
+  {
+    int res = taiHookReleaseForKernel(mmc_write_hook_id, mmc_write_hook_ref);
+
+    #ifdef ENABLE_DEBUG_LOG
+    if(res < 0)
+      FILE_GLOBAL_WRITE_LEN("Failed to deinit mmc_write_hook\n");
+    else
+      FILE_GLOBAL_WRITE_LEN("Deinit mmc_write_hook\n");
+    #endif
+
+    mmc_write_hook_id = -1;
+  }
+  
+  if(suspend_cid_check_patch_id >= 0)
+  {
+    int res = taiInjectReleaseForKernel(suspend_cid_check_patch_id);
+
+    #ifdef ENABLE_DEBUG_LOG
+    if(res < 0)
+      FILE_GLOBAL_WRITE_LEN("Failed to deinit suspend_cid_check_patch\n");
+    else
+      FILE_GLOBAL_WRITE_LEN("Deinit suspend_cid_check_patch\n");
+    #endif
+
+    suspend_cid_check_patch_id = -1;
+  }
+
+  if(resume_cid_check_patch_id >= 0)
+  {
+    int res = taiInjectReleaseForKernel(resume_cid_check_patch_id);
+
+    #ifdef ENABLE_DEBUG_LOG
+    if(res < 0)
+      FILE_GLOBAL_WRITE_LEN("Failed to deinit resume_cid_check_patch\n");
+    else
+      FILE_GLOBAL_WRITE_LEN("Deinit resume_cid_check_patch\n");
+    #endif
+
+    resume_cid_check_patch_id = -1;
   }
 
   if(send_command_hook_id >= 0)

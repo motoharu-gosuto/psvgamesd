@@ -6,7 +6,9 @@
 tai_hook_ref_t sd_read_hook_ref;
 SceUID sd_read_hook_id = -1;
 
+SceUID gen_init_1_patch_uid = -1; // patch of zero func in gen_init_1 function
 SceUID gen_init_2_patch_uid = -1; // patch of zero func in gen_init_2 function
+SceUID gen_init_3_patch_uid = -1; // patch of zero func in gen_init_3 function
 
 SceUID hs_dis_patch1_uid = -1; //high speed disable patch 1
 SceUID hs_dis_patch2_uid = -1; //high speed disable patch 2
@@ -22,6 +24,9 @@ SceUID gc_cmd56_handshake_hook_id = -1;
 
 tai_hook_ref_t mmc_read_hook_ref;
 SceUID mmc_read_hook_id = -1;
+
+tai_hook_ref_t mmc_write_hook_ref;
+SceUID mmc_write_hook_id = -1;
 
 tai_hook_ref_t get_insert_state_hook_ref;
 SceUID get_insert_state_hook_id = -1; 
@@ -41,3 +46,6 @@ SceUID fast_mutex_lock_hook_id = -1;
 
 tai_hook_ref_t fast_mutex_unlock_hook_ref;
 SceUID fast_mutex_unlock_hook_id = -1;
+
+SceUID suspend_cid_check_patch_id = -1;
+SceUID resume_cid_check_patch_id = -1;

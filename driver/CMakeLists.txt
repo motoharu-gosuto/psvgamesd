@@ -45,6 +45,7 @@ add_executable(psvgamesd
   ins_rem_card.c
   reg_common.c
   global_hooks.c
+  media_id_emu.c
 )
 
 target_link_libraries(psvgamesd
