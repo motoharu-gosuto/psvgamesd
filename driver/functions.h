@@ -31,3 +31,31 @@ extern sceKernelDeleteFastMutexForDriver_t* sceKernelDeleteFastMutexForDriver;
 extern sceKernelGetMutexInfoForDriver_t* sceKernelGetMutexInfoForDriver;
 
 int initialize_functions();
+
+#define SCE_KERNEL_SYS_EVENT_SUSPEND 0
+#define SCE_KERNEL_SYS_EVENT_RESUME 1
+
+typedef struct 
+{
+  uint32_t size; // 24
+  uint32_t unk1;
+  uint32_t unk2;
+  uint32_t unk3;
+  uint32_t unk4;
+  uint32_t unk5;
+} sysevent_args_t;
+
+typedef struct 
+{
+	uint32_t unk_0;
+	uint8_t unk_4;
+	uint8_t unk_5;
+	uint8_t unk_6;
+	uint8_t unk_7;
+}sysevent_opt_t;
+
+typedef int (sysevent_callback_t)(int resume, int eventid, sysevent_args_t* args, sysevent_opt_t* opt);
+
+SceUID ksceKernelRegisterSysEventHandler(const char *name, sysevent_callback_t *callback_func, void *opt);
+
+int ksceKernelUnregisterSysEventHandler(SceUID evid);
