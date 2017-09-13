@@ -13,6 +13,9 @@
 extern tai_hook_ref_t sd_read_hook_ref;
 extern SceUID sd_read_hook_id;
 
+extern tai_hook_ref_t sd_write_hook_ref;
+extern SceUID sd_write_hook_id;
+
 extern SceUID gen_init_1_patch_uid;
 extern SceUID gen_init_2_patch_uid;
 extern SceUID gen_init_3_patch_uid;

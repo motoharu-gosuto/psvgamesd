@@ -6,6 +6,9 @@
 tai_hook_ref_t sd_read_hook_ref;
 SceUID sd_read_hook_id = -1;
 
+tai_hook_ref_t sd_write_hook_ref;
+SceUID sd_write_hook_id = -1;
+
 SceUID gen_init_1_patch_uid = -1; // patch of zero func in gen_init_1 function
 SceUID gen_init_2_patch_uid = -1; // patch of zero func in gen_init_2 function
 SceUID gen_init_3_patch_uid = -1; // patch of zero func in gen_init_3 function
