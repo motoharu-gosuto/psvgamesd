@@ -29,6 +29,11 @@ int g_res = 0;
 
 MBR g_mbr;
 
+const MBR* get_mbr_ptr()
+{
+  return &g_mbr;
+}
+
 int get_mbr(const char* path)
 {
   if(strnlen(path, 256) > 0)

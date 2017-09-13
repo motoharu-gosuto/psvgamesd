@@ -2,7 +2,7 @@
 
 #define SCEHeader "Sony Computer Entertainment Inc."
 
-#define NPartitions 20
+#define MAX_MBR_PARTITIONS 16
 
 enum PartitionCodes
 {
@@ -60,9 +60,15 @@ typedef struct MBR
    uint32_t unk_48;
    uint32_t unk_4C;
    
-   PartitionEntry partitions[NPartitions];
+   PartitionEntry partitions[MAX_MBR_PARTITIONS]; //offset 0x50
 
-   uint8_t unk_data[0x5A];
+   uint8_t unk_data[0x5E];
+
+   uint8_t unk_data_1BE[0x10];
+   uint8_t unk_data_1CE[0x10];
+   uint8_t unk_data_1DE[0x10];
+   uint8_t unk_data_1EE[0x10];
+   
    uint16_t signature;
 } MBR;
 

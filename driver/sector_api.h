@@ -4,6 +4,9 @@
 
 #include <stdint.h>
 
+#define GC_MEDIA_ID_BLOCK_DEV "gcd-lp-act-mediaid"
+#define MC_MEDIA_ID_BLOCK_DEV "mcd-lp-act-mediaid"
+
 #pragma pack(push, 1)
 
 struct sd_context_global;

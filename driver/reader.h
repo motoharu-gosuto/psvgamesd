@@ -2,6 +2,8 @@
 
  #include <psp2kern/types.h>
 
+ #include "mbr_types.h"
+
 extern SceUID req_lock;
 extern SceUID resp_lock;
 
@@ -13,6 +15,8 @@ extern int g_sector;
 extern char* g_buffer;
 extern int g_nSectors; 
 extern int g_res;
+
+const MBR* get_mbr_ptr();
 
 int set_reader_iso_path(const char* path);
 int clear_reader_iso_path();
