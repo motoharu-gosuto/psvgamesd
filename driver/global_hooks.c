@@ -15,8 +15,11 @@
 #include "defines.h"
 #include "sector_api.h"
 #include "global_log.h"
+#include "functions.h"
 
 SceUID SceSdif1_lock = -1;
+
+SceUID SceSdifSysEvent_uid = -1;
 
 fast_mutex* get_gc_mutex()
 {
@@ -121,9 +124,119 @@ int deinit_global_threading()
   return 0;
 }
 
+int SceSdifSysEvent_handler(int resume, int eventid, sysevent_args_t* args, sysevent_opt_t* opt)
+{
+  //iofilemgr on resume 0x10000, 0x400000
+
+  if(resume == SCE_KERNEL_SYS_EVENT_RESUME)
+  {
+    //received event ids
+    //eventid is 0x100000
+    //eventid is 0x100001
+    //eventid is 0x100002
+    //eventid is 0x400000
+
+    //this code is under comments because writing to file may cause deadlocks here
+    /*
+    if(opt > 0)
+    {
+      #ifdef ENABLE_DEBUG_LOG
+      FILE_GLOBAL_WRITE_LEN("SceSdifSysEvent_handler: resume\n");
+      snprintf(sprintfBuffer, 256, "eventid: %x unk_5: %x\n", eventid, opt->unk_5);
+      FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
+      #endif
+    }
+    else
+    {
+      #ifdef ENABLE_DEBUG_LOG
+      FILE_GLOBAL_WRITE_LEN("SceSdifSysEvent_handler: resume\n");
+      snprintf(sprintfBuffer, 256, "eventid: %x\n", eventid);
+      FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
+      #endif
+    }
+    */
+
+    return 0;
+  }
+  else if(resume == SCE_KERNEL_SYS_EVENT_SUSPEND)
+  {
+    //received event ids
+    //eventid is 0x200
+    //eventid is 0x201
+    //eventid is 0x202
+    //eventid is 0x203
+    //eventid is 0x204
+    //eventid is 0x205
+    //eventid is 0x206
+    //eventid is 0x207
+    //eventid is 0x208
+    //eventid is 0x209
+    //eventid is 0x20A
+    //eventid is 0x20B
+    //eventid is 0x20C
+    //eventid is 0x20D
+    //eventid is 0x20E
+    //eventid is 0x20F
+
+    //this code is under comments because writing to file may cause deadlocks here
+    /*
+    #ifdef ENABLE_DEBUG_LOG
+    FILE_GLOBAL_WRITE_LEN("SceSdifSysEvent_handler: suspend\n");
+    snprintf(sprintfBuffer, 256, "eventid: %x\n", eventid);
+    FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
+    #endif
+    */
+
+    return 0;
+  }
+  else
+  {
+    return 0;
+  }
+}
+
+int init_sysevent_handler()
+{
+  SceSdifSysEvent_uid = ksceKernelRegisterSysEventHandler("SceSdifSysEvent", SceSdifSysEvent_handler, NULL);
+  #ifdef ENABLE_DEBUG_LOG
+  if(SceSdifSysEvent_uid < 0)
+  {
+    snprintf(sprintfBuffer, 256, "Failed to create SceSdifSysEvent %x\n", SceSdifSysEvent_uid);
+    FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
+  }
+  else
+  {
+    snprintf(sprintfBuffer, 256, "Create SceSdifSysEvent %x\n", SceSdifSysEvent_uid);
+    FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
+  }
+  #endif
+
+  return 0;
+}
+
+int deinit_sysevent_handler()
+{
+  int res = ksceKernelUnregisterSysEventHandler(SceSdifSysEvent_uid);
+  #ifdef ENABLE_DEBUG_LOG
+  if(res < 0)
+  {
+    snprintf(sprintfBuffer, 256, "Failed to delete SceSdifSysEvent %x\n", res);
+    FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
+  }
+  else
+  {
+    FILE_GLOBAL_WRITE_LEN("Delete SceSdifSysEvent\n");
+  }
+  #endif
+
+  return 0;
+}
+
 int init_global_hooks()
 {
   init_global_threading();
+
+  init_sysevent_handler();
 
   tai_module_info_t sdif_info;
   sdif_info.size = sizeof(tai_module_info_t);
@@ -180,6 +293,8 @@ int deinit_global_hooks()
 
     fast_mutex_unlock_hook_id = -1;
   }
+
+  deinit_sysevent_handler();
 
   deinit_global_threading();
 
