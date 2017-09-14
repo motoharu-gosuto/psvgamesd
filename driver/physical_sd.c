@@ -6,11 +6,79 @@
 #include "sector_api.h"
 #include "utils.h"
 #include "reader.h"
+#include "psv_types.h"
 
 #include "defines.h"
 
 #include <taihen.h>
 #include <module.h>
+
+#include <string.h>
+
+//by some unknown reason real sectors on the sd card start from 0x8000
+//TODO: I need to figure out this later
+#define SD_ADDRESS_OFFSET 0x8000
+
+char g_img_header_sd_raw_data[0x200] = {0};
+psv_file_header_v1* g_img_header_sd = 0;
+
+int initialize_img_header()
+{
+  if(g_img_header_sd > 0)
+    return 0;
+
+  sd_context_part_sd* sd_ctx = ksceSdifGetSdContextPartSd(SCE_SDIF_DEV_GAME_CARD);
+  if(sd_ctx <= 0)
+  {
+    #ifdef ENABLE_DEBUG_LOG
+    FILE_GLOBAL_WRITE_LEN("Failed to get context part\n");
+    #endif
+
+    return -1;
+  }
+
+  int res = ksceSdifReadSector(sd_ctx, 0, g_img_header_sd_raw_data, 1);
+  if(res < 0)
+  {
+    #ifdef ENABLE_DEBUG_LOG
+    FILE_GLOBAL_WRITE_LEN("Failed to read sector\n");
+    #endif
+
+    return -1;
+  }
+
+  psv_file_header_base* header_base = (psv_file_header_base*)g_img_header_sd_raw_data;
+
+  if(header_base->magic != PSV_MAGIC || header_base->version != PSV_VERSION_V1)
+  {
+    #ifdef ENABLE_DEBUG_LOG
+    FILE_GLOBAL_WRITE_LEN("ISO magic or version is invalid\n");
+    #endif
+
+    return -1;
+  }
+
+  g_img_header_sd = (psv_file_header_v1*)g_img_header_sd_raw_data;
+
+  return 0;
+}
+
+int deinitialize_img_header()
+{
+  memset(g_img_header_sd_raw_data, 0, SD_DEFAULT_SECTOR_SIZE);
+
+  g_img_header_sd = 0;
+  return 0;
+}
+
+int get_cmd56_data_physical_sd(char* buffer)
+{
+  memcpy(buffer, g_img_header_sd->key1, 0x10);
+  memcpy(buffer + 0x10, g_img_header_sd->key2, 0x10);
+  memcpy(buffer + 0x20, g_img_header_sd->signature, 0x14);
+  
+  return 0;
+}
 
 //sd read operation hook that redirects directly to sd card (physical read)
 int sd_read_hook_through(void* ctx_part, int sector, char* buffer, int nSectors)
@@ -18,18 +86,24 @@ int sd_read_hook_through(void* ctx_part, int sector, char* buffer, int nSectors)
   //make sure that only sd operations are redirected
   if(ksceSdifGetSdContextGlobal(SCE_SDIF_DEV_GAME_CARD) == ((sd_context_part_base*)ctx_part)->gctx_ptr)
   {
+    //this code may cause deadlocks so moved under comment
+    /*
     #ifdef ENABLE_DEBUG_LOG
     snprintf(sprintfBuffer, 256, "enter sd read sector %x nSectors %x\n", sector, nSectors);
     FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
     #endif
+    */
     
     //can add debug code here
     int res = TAI_CONTINUE(int, sd_read_hook_ref, ctx_part, sector, buffer, nSectors);
 
+    //this code may cause deadlocks so moved under comment
+    /*
     #ifdef ENABLE_DEBUG_LOG
     snprintf(sprintfBuffer, 256, "exit sd read sector %x nSectors %x\n", sector, nSectors);
     FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
     #endif
+    */
 
     return res;
   }
@@ -40,10 +114,6 @@ int sd_read_hook_through(void* ctx_part, int sector, char* buffer, int nSectors)
   }
 }
 
-//by some unknown reason real sectors on the sd card start from 0x8000
-//TODO: I need to figure out this later
-#define ADDRESS_OFFSET 0x8000
-
 //this hook modifies offset to data that is sent to the card
 //this is done only for game card device by checking ctx pointer with sd api
 //this is done only for commands CMD17 (read) and CMD18 (write)
@@ -53,7 +123,17 @@ int send_command_hook(sd_context_global* ctx, cmd_input* cmd_data1, cmd_input* c
   {
     if(cmd_data1->command == 17 || cmd_data1->command == 18)
     {
-      cmd_data1->argument = cmd_data1->argument + ADDRESS_OFFSET; //fixup address. I have no idea why I should do it
+      //fixup address. I have no idea why I should do it
+      if(g_img_header_sd == 0)
+      {
+        //add basic offset if image header is not initialized
+        cmd_data1->argument = cmd_data1->argument + SD_ADDRESS_OFFSET;
+      }
+      else
+      {
+        //add basic offset and image offset if image header is initialized
+        cmd_data1->argument = cmd_data1->argument + SD_ADDRESS_OFFSET + g_img_header_sd->image_offset_sector;
+      }
     }
 
     #ifdef ENABLE_COMMAND_DEBUG_LOG
@@ -89,9 +169,12 @@ int init_sd_hook_physical(int sd_ctx_index, void** ctx_part)
   {
     int res = TAI_CONTINUE(int, init_sd_hook_ref, sd_ctx_index, ctx_part);
 
-    //get data from iso
+    //initialize img header after card is initialized and we can read it
+    initialize_img_header();
+
+    //get data from img header
     char data_5018_buffer[0x34];
-    get_cmd56_data(data_5018_buffer);
+    get_cmd56_data_physical_sd(data_5018_buffer);
 
     //set data in gc memory
     set_5018_data(data_5018_buffer);
@@ -273,6 +356,8 @@ int deinitialize_hooks_physical_sd()
 
     send_command_hook_id = -1;
   }
+
+  deinitialize_img_header();
 
   return 0;
 }
