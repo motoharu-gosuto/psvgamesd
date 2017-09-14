@@ -71,6 +71,11 @@ int get_mbr(const char* path)
 
       //read mbr
 
+      //DO NOT REMOVE THE CASTS!
+      SceOff mbr_offset = (SceOff)header_ver.image_offset_sector * (SceOff)SD_DEFAULT_SECTOR_SIZE;
+
+      ksceIoLseek(iso_fd, mbr_offset, SEEK_SET);
+
       ksceIoRead(iso_fd, &g_mbr, sizeof(MBR));
 
       #ifdef ENABLE_DEBUG_LOG
@@ -174,8 +179,9 @@ int emulate_read(int sector, char* buffer, int nSectors)
 {
   int res = 0;
 
-  SceOff offset = (SceOff)sizeof(psv_file_header_v1);
-  offset = offset + (SceOff)sector * (SceOff)SD_DEFAULT_SECTOR_SIZE; //DO NOT REMOVE THE CASTS!
+  //DO NOT REMOVE THE CASTS!
+  SceOff offset = (SceOff)g_img_header.image_offset_sector * (SceOff)SD_DEFAULT_SECTOR_SIZE;
+  offset = offset + (SceOff)sector * (SceOff)SD_DEFAULT_SECTOR_SIZE;
 
   SceSize size = nSectors * SD_DEFAULT_SECTOR_SIZE;
 

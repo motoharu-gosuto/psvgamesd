@@ -174,14 +174,24 @@ int dump_header(SceUID dev_fd, SceUID out_fd, const MBR* dump_mbr)
   psv_file_header_v1 img_header;
   img_header.magic = PSV_MAGIC;
   img_header.version = PSV_VERSION_V1;
+  img_header.flags = 0;
   memcpy(img_header.key1, data_5018_buffer, 0x10);
   memcpy(img_header.key2, data_5018_buffer + 0x10, 0x10);
   memcpy(img_header.signature, data_5018_buffer + 0x20, 0x14);
+  memset(img_header.hash, 0, 0x20);
   img_header.image_size = dump_mbr->sizeInBlocks * SD_DEFAULT_SECTOR_SIZE;
+  img_header.image_offset_sector = 1;
 
   //write data
   ksceIoWrite(out_fd, &img_header, sizeof(psv_file_header_v1));
 
+  //write padding
+  int padding_size = SD_DEFAULT_SECTOR_SIZE - sizeof(psv_file_header_v1);
+  char padding_data[SD_DEFAULT_SECTOR_SIZE];
+  memset(padding_data, 0, SD_DEFAULT_SECTOR_SIZE);
+
+  ksceIoWrite(out_fd, padding_data, padding_size);
+  
   return 0;
 }
 
