@@ -107,6 +107,45 @@ void set_running_state(uint32_t value)
 
 //---------------
 
+int dump_header(SceUID dev_fd, SceUID out_fd, const MBR* dump_mbr, const char* sha256_digest)
+{
+  //get data from gc memory
+  char data_5018_buffer[CMD56_DATA_SIZE];
+  get_5018_data(data_5018_buffer);
+
+  //construct header
+  psv_file_header_v1 img_header;
+  img_header.magic = PSV_MAGIC;
+  img_header.version = PSV_VERSION_V1;
+  img_header.flags = 0;
+  memcpy(img_header.key1, data_5018_buffer, 0x10);
+  memcpy(img_header.key2, data_5018_buffer + 0x10, 0x10);
+  memcpy(img_header.signature, data_5018_buffer + 0x20, 0x14);
+  
+  if(sha256_digest == 0)
+    memset(img_header.hash, 0, 0x20);
+  else
+    memcpy(img_header.hash, sha256_digest, 0x20);
+
+  img_header.image_size = dump_mbr->sizeInBlocks * SD_DEFAULT_SECTOR_SIZE;
+  img_header.image_offset_sector = 1;
+
+  //seek to the beginning of the file in case of updating the header with sha256 hash
+  ksceIoLseek(out_fd, 0, SEEK_SET);
+
+  //write data
+  ksceIoWrite(out_fd, &img_header, sizeof(psv_file_header_v1));
+
+  //write padding
+  int padding_size = SD_DEFAULT_SECTOR_SIZE - sizeof(psv_file_header_v1);
+  char padding_data[SD_DEFAULT_SECTOR_SIZE];
+  memset(padding_data, 0, SD_DEFAULT_SECTOR_SIZE);
+
+  ksceIoWrite(out_fd, padding_data, padding_size);
+  
+  return 0;
+}
+
 //number of blocks per copy operation
 #define DUMP_BLOCK_SIZE 0x10
 
@@ -117,8 +156,14 @@ char dump_buffer[SD_DEFAULT_SECTOR_SIZE * DUMP_BLOCK_SIZE];
 
 int dump_img(SceUID dev_fd, SceUID out_fd, const MBR* dump_mbr)
 {
+  //init dump status
   set_total_sectors(dump_mbr->sizeInBlocks);
   set_progress_sectors(0);
+
+  //init sha256
+  sha256_ctx ctx;
+  memset((char*)&ctx, 0, sizeof(sha256_ctx));
+  sceSha256BlockInitForDriver(&ctx);
 
   //dump sectors - main part
   SceSize nBlocks = dump_mbr->sizeInBlocks / DUMP_BLOCK_SIZE;
@@ -149,54 +194,41 @@ int dump_img(SceUID dev_fd, SceUID out_fd, const MBR* dump_mbr)
       }
     }
 
+    //get data
     ksceIoRead(dev_fd, dump_buffer, SD_DEFAULT_SECTOR_SIZE * DUMP_BLOCK_SIZE);
 
+    //dump data
     ksceIoWrite(out_fd, dump_buffer, SD_DEFAULT_SECTOR_SIZE * DUMP_BLOCK_SIZE);
+
+    //update sha256
+    sceSha256BlockUpdateForDriver(&ctx, dump_buffer, SD_DEFAULT_SECTOR_SIZE * DUMP_BLOCK_SIZE);
   }
 
   //dump sectors - tail
   SceSize nTail = dump_mbr->sizeInBlocks % DUMP_BLOCK_SIZE;
   if(nTail > 0)
   {
+    //get data
     ksceIoRead(dev_fd, dump_buffer, SD_DEFAULT_SECTOR_SIZE * nTail);
 
+    //dump data
     ksceIoWrite(out_fd, dump_buffer, SD_DEFAULT_SECTOR_SIZE * nTail);
+
+    //update sha256
+    sceSha256BlockUpdateForDriver(&ctx, dump_buffer, SD_DEFAULT_SECTOR_SIZE * nTail);
   }
 
+  //get sha256 digest
+  char sha256_digest[0x20];
+  memset(sha256_digest, 0, 0x20);
+  sceSha256BlockResultForDriver(&ctx, sha256_digest);
+
+  //rewrite header
+  dump_header(dev_fd, out_fd, dump_mbr, sha256_digest);
+  
   //report number of sectors that are dumped
   set_progress_sectors(dump_mbr->sizeInBlocks);
 
-  return 0;
-}
-
-int dump_header(SceUID dev_fd, SceUID out_fd, const MBR* dump_mbr)
-{
-  //get data from gc memory
-  char data_5018_buffer[CMD56_DATA_SIZE];
-  get_5018_data(data_5018_buffer);
-
-  //construct header
-  psv_file_header_v1 img_header;
-  img_header.magic = PSV_MAGIC;
-  img_header.version = PSV_VERSION_V1;
-  img_header.flags = 0;
-  memcpy(img_header.key1, data_5018_buffer, 0x10);
-  memcpy(img_header.key2, data_5018_buffer + 0x10, 0x10);
-  memcpy(img_header.signature, data_5018_buffer + 0x20, 0x14);
-  memset(img_header.hash, 0, 0x20);
-  img_header.image_size = dump_mbr->sizeInBlocks * SD_DEFAULT_SECTOR_SIZE;
-  img_header.image_offset_sector = 1;
-
-  //write data
-  ksceIoWrite(out_fd, &img_header, sizeof(psv_file_header_v1));
-
-  //write padding
-  int padding_size = SD_DEFAULT_SECTOR_SIZE - sizeof(psv_file_header_v1);
-  char padding_data[SD_DEFAULT_SECTOR_SIZE];
-  memset(padding_data, 0, SD_DEFAULT_SECTOR_SIZE);
-
-  ksceIoWrite(out_fd, padding_data, padding_size);
-  
   return 0;
 }
 
@@ -224,7 +256,7 @@ int dump_core(SceUID dev_fd, SceUID out_fd)
   ksceIoLseek(dev_fd, 0, SEEK_SET);
 
   //write header info
-  dump_header(dev_fd, out_fd, &dump_mbr);
+  dump_header(dev_fd, out_fd, &dump_mbr, 0);
 
   //dump image itself
   dump_img(dev_fd, out_fd, &dump_mbr);
