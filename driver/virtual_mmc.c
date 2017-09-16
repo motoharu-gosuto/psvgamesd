@@ -23,7 +23,7 @@ int mmc_read_hook_threaded(void* ctx_part, int sector,	char* buffer, int nSector
   if(ksceSdifGetSdContextGlobal(SCE_SDIF_DEV_GAME_CARD) == ((sd_context_part_base*)ctx_part)->gctx_ptr)
   {
     //check if media-id read is requested
-    int media_id_res = read_media_id(sector, buffer, nSectors);
+    int media_id_res = read_media_id(get_mbr_ptr(), sector, buffer, nSectors);
     if(media_id_res > 0)
       return 0;
 
@@ -79,7 +79,7 @@ int mmc_write_hook(void* ctx_part, int sector, char* buffer, int nSectors)
   //make sure that only mmc operations are redirected
   if(ksceSdifGetSdContextGlobal(SCE_SDIF_DEV_GAME_CARD) == ((sd_context_part_base*)ctx_part)->gctx_ptr)
   {
-    int media_id_res = write_media_id(sector, buffer, nSectors);
+    int media_id_res = write_media_id(get_mbr_ptr(), sector, buffer, nSectors);
     if(media_id_res > 0)
       return 0;
 
@@ -121,7 +121,7 @@ int send_command_emu_hook(sd_context_global* ctx, cmd_input* cmd_data1, cmd_inpu
 int gc_cmd56_handshake_override_hook(int param0)
 {
   //get data from iso
-  char data_5018_buffer[0x34];
+  char data_5018_buffer[CMD56_DATA_SIZE];
   get_cmd56_data(data_5018_buffer);
 
   //set data in gc memory
