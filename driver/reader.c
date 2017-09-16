@@ -192,7 +192,7 @@ int emulate_read(int sector, char* buffer, int nSectors)
   if(sector >= g_mbr.sizeInBlocks)
   {
     memset(buffer, 0, size);
-    res = -2;
+    res = SD_UNKNOWN_READ_WRITE_ERROR;
   }
   else
   {
@@ -203,13 +203,13 @@ int emulate_read(int sector, char* buffer, int nSectors)
       if(newPos != offset)
       {
         memset(buffer, 0, size);
-        res = -3;
+        res = SD_UNKNOWN_READ_WRITE_ERROR;
       }
       else
       {
         int nbytes = ksceIoRead(iso_fd, buffer, size);
         if(nbytes != size)
-          res = -4;
+          res = SD_UNKNOWN_READ_WRITE_ERROR;
         else
           res = 0;
       }
@@ -219,7 +219,7 @@ int emulate_read(int sector, char* buffer, int nSectors)
     else
     {
       memset(buffer, 0, size);
-      res = -1;
+      res = SD_UNKNOWN_READ_WRITE_ERROR;
     }
   }
 

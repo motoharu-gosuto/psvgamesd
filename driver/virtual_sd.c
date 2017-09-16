@@ -2,6 +2,8 @@
 
  #include <psp2kern/kernel/threadmgr.h>
 
+#include <string.h>
+
  #include "hook_ids.h"
  #include "functions.h"
  #include "reader.h"
@@ -88,7 +90,8 @@ int sd_write_hook(void* ctx_part, int sector, char* buffer, int nSectors)
     FILE_GLOBAL_WRITE_LEN("Write operation is not supported\n");
     #endif
 
-    return 0;
+    memset(buffer, 0, nSectors * SD_DEFAULT_SECTOR_SIZE);
+    return SD_UNKNOWN_READ_WRITE_ERROR;
   }
   else
   {

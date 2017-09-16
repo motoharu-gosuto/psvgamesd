@@ -282,6 +282,8 @@ int ksceSdifGetCardInsertState2(int sd_ctx_idx);
 int ksceSdifInitializeSdContextPartMmc(int sd_ctx_index, sd_context_part_mmc** result);
 int ksceSdifInitializeSdContextPartSd(int sd_ctx_index, sd_context_part_sd** result);
 
+#define SD_UNKNOWN_READ_WRITE_ERROR 0x8032000E
+
 //uses CMD17 for single sector and CMD23, CMD24 for multiple sectors
 int ksceSdifReadSectorAsync(void* ctx_part, int sector, char* buffer, int nSectors);
 int ksceSdifReadSector(void* ctx_part, int sector, char* buffer, int nSectors);

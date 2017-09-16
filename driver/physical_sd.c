@@ -189,7 +189,8 @@ int sd_write_hook_physical(void* ctx_part, int sector, char* buffer, int nSector
     FILE_GLOBAL_WRITE_LEN("Write operation is not supported\n");
     #endif
 
-    return 0;
+    memset(buffer, 0, nSectors * SD_DEFAULT_SECTOR_SIZE);
+    return SD_UNKNOWN_READ_WRITE_ERROR;
   }
   else
   {
