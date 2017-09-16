@@ -191,8 +191,17 @@ int emulate_read(int sector, char* buffer, int nSectors)
 
   if(sector >= g_mbr.sizeInBlocks)
   {
-    memset(buffer, 0, size);
-    res = SD_UNKNOWN_READ_WRITE_ERROR;
+    //handling trimmed image
+    if((g_img_header.flags & FLAG_TRIMMED) > 0)
+    {
+      memset(buffer, 0, size);
+      res = 0;
+    }
+    else
+    {
+      memset(buffer, 0, size);
+      res = SD_UNKNOWN_READ_WRITE_ERROR; 
+    }
   }
   else
   {
