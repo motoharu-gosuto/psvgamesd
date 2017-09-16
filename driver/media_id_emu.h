@@ -1,5 +1,7 @@
 #pragma once
 
-int write_media_id(int sector, char* buffer, int nSectors);
+#include "mbr_types.h"
 
-int read_media_id(int sector, char* buffer, int nSectors);
+int write_media_id(const MBR* mbr, int sector, char* buffer, int nSectors);
+
+int read_media_id(const MBR* mbr, int sector, char* buffer, int nSectors);

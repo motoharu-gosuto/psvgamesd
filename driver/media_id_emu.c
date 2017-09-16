@@ -9,7 +9,6 @@
 #include "global_log.h"
 #include "sector_api.h"
 #include "utils.h"
-#include "mbr_types.h"
 #include "defines.h"
 
 enum PartitionCodes block_dev_to_partition_code(const char* block_dev_name, int length)
@@ -28,11 +27,9 @@ enum PartitionCodes block_dev_to_partition_code(const char* block_dev_name, int 
   }
 }
 
-const PartitionEntry* call_find_partition_entry(const char* block_dev_name, int length)
+const PartitionEntry* call_find_partition_entry(const MBR* mbr, const char* block_dev_name, int length)
 {
   enum PartitionCodes pc = block_dev_to_partition_code(block_dev_name, length);
-
-  const MBR* mbr = get_mbr_ptr();
 
   for(int i = 0; i < MAX_MBR_PARTITIONS; i++)
   {
@@ -79,9 +76,9 @@ char media_id[SD_DEFAULT_SECTOR_SIZE] = {0};
 //if result is -1 - error
 //if result is 0 - not a media-id partition
 //if result is 1 - media-id was written
-int write_media_id(int sector, char* buffer, int nSectors)
+int write_media_id(const MBR* mbr, int sector, char* buffer, int nSectors)
 {
-  const PartitionEntry* pe = call_find_partition_entry(GC_MEDIA_ID_BLOCK_DEV, 0x12);
+  const PartitionEntry* pe = call_find_partition_entry(mbr, GC_MEDIA_ID_BLOCK_DEV, 0x12);
   if(pe > 0)
   {
     if(pe->partitionOffset == sector)
@@ -113,7 +110,7 @@ int write_media_id(int sector, char* buffer, int nSectors)
   else
   {
     #ifdef ENABLE_DEBUG_LOG
-    snprintf(sprintfBuffer, 256, "failed to find partition entry on write%x\n", pe);
+    snprintf(sprintfBuffer, 256, "failed to find partition entry on write %x\n", pe);
     FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
     #endif
 
@@ -124,9 +121,9 @@ int write_media_id(int sector, char* buffer, int nSectors)
 //if result is -1 - error
 //if result is 0 - not a media-id partition
 //if result is 1 - media-id was written
-int read_media_id(int sector, char* buffer, int nSectors)
+int read_media_id(const MBR* mbr, int sector, char* buffer, int nSectors)
 {
-  const PartitionEntry* pe = call_find_partition_entry(GC_MEDIA_ID_BLOCK_DEV, 0x12);
+  const PartitionEntry* pe = call_find_partition_entry(mbr, GC_MEDIA_ID_BLOCK_DEV, 0x12);
   if(pe > 0)
   {
     if(pe->partitionOffset == sector)
@@ -158,7 +155,7 @@ int read_media_id(int sector, char* buffer, int nSectors)
   else
   {
     #ifdef ENABLE_DEBUG_LOG
-    snprintf(sprintfBuffer, 256, "failed to find partition entry on read%x\n", pe);
+    snprintf(sprintfBuffer, 256, "failed to find partition entry on read %x\n", pe);
     FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
     #endif
 
