@@ -7,7 +7,7 @@
 #include "utils.h"
 #include "reader.h"
 #include "psv_types.h"
-
+#include "media_id_emu.h"
 #include "defines.h"
 
 #include <taihen.h>
@@ -19,8 +19,13 @@
 //TODO: I need to figure out this later
 #define SD_ADDRESS_OFFSET 0x8000
 
-char g_img_header_sd_raw_data[0x200] = {0};
+// ======= img header and mbr init for physical mode ======= 
+
+char g_img_header_sd_raw_data[SD_DEFAULT_SECTOR_SIZE] = {0};
 psv_file_header_v1* g_img_header_sd = 0;
+
+char g_mbr_sd_raw_data[SD_DEFAULT_SECTOR_SIZE] = {0};
+MBR* g_mbr_sd = 0;
 
 int initialize_img_header()
 {
@@ -37,6 +42,7 @@ int initialize_img_header()
     return -1;
   }
 
+  //when image header is not initialized - data will be read from real 0 sector
   int res = ksceSdifReadSector(sd_ctx, 0, g_img_header_sd_raw_data, 1);
   if(res < 0)
   {
@@ -71,14 +77,49 @@ int deinitialize_img_header()
   return 0;
 }
 
-int get_cmd56_data_physical_sd(char* buffer)
+int initialize_mbr_header()
 {
-  memcpy(buffer, g_img_header_sd->key1, 0x10);
-  memcpy(buffer + 0x10, g_img_header_sd->key2, 0x10);
-  memcpy(buffer + 0x20, g_img_header_sd->signature, 0x14);
-  
+  if(g_img_header_sd == 0)
+    return -1;
+
+  if(g_mbr_sd > 0)
+    return 0;
+
+  sd_context_part_sd* sd_ctx = ksceSdifGetSdContextPartSd(SCE_SDIF_DEV_GAME_CARD);
+  if(sd_ctx <= 0)
+  {
+    #ifdef ENABLE_DEBUG_LOG
+    FILE_GLOBAL_WRITE_LEN("Failed to get context part\n");
+    #endif
+
+    return -1;
+  }
+
+  //when image header is initialized data will be read from g_img_header_sd->image_offset_sector
+  int res = ksceSdifReadSector(sd_ctx, 0, g_mbr_sd_raw_data, 1);
+  if(res < 0)
+  {
+    #ifdef ENABLE_DEBUG_LOG
+    FILE_GLOBAL_WRITE_LEN("Failed to read sector\n");
+    #endif
+
+    return -1;
+  }
+
+  g_mbr_sd = (MBR*)g_mbr_sd_raw_data;
+
   return 0;
 }
+
+int deinitialize_mbr_header()
+{
+  memset(g_mbr_sd_raw_data, 0, SD_DEFAULT_SECTOR_SIZE);
+
+  g_mbr_sd = 0;
+  return 0;
+}
+
+// ======= other code =======
 
 //sd read operation hook that redirects directly to sd card (physical read)
 int sd_read_hook_through(void* ctx_part, int sector, char* buffer, int nSectors)
@@ -86,6 +127,19 @@ int sd_read_hook_through(void* ctx_part, int sector, char* buffer, int nSectors)
   //make sure that only sd operations are redirected
   if(ksceSdifGetSdContextGlobal(SCE_SDIF_DEV_GAME_CARD) == ((sd_context_part_base*)ctx_part)->gctx_ptr)
   {
+    //first (internal) read that will be requested will initialize image header - at this moment we dont have mbr initialied
+    if(g_img_header_sd > 0)
+    {
+      //second (internal) read that will be requested will initialize mbr - at this point we can start emulating mediaid
+      if(g_mbr_sd > 0)
+      {
+        //check if media-id read is requested
+        int media_id_res = read_media_id(g_mbr_sd, sector, buffer, nSectors);
+        if(media_id_res > 0)
+          return 0;
+      }
+    }
+  
     //this code may cause deadlocks so moved under comment
     /*
     #ifdef ENABLE_DEBUG_LOG
@@ -114,6 +168,36 @@ int sd_read_hook_through(void* ctx_part, int sector, char* buffer, int nSectors)
   }
 }
 
+int sd_write_hook_physical(void* ctx_part, int sector, char* buffer, int nSectors)
+{
+  //make sure that only mmc operations are redirected
+  if(ksceSdifGetSdContextGlobal(SCE_SDIF_DEV_GAME_CARD) == ((sd_context_part_base*)ctx_part)->gctx_ptr)
+  {
+     //first (internal) read that will be requested will initialize image header - at this moment we dont have mbr initialied
+     if(g_img_header_sd > 0)
+     {
+        //second (internal) read that will be requested will initialize mbr - at this point we can start emulating mediaid
+        if(g_mbr_sd > 0)
+        {
+          int media_id_res = write_media_id(g_mbr_sd, sector, buffer, nSectors);
+          if(media_id_res > 0)
+            return 0;
+        }
+    }
+
+    #ifdef ENABLE_DEBUG_LOG
+    FILE_GLOBAL_WRITE_LEN("Write operation is not supported\n");
+    #endif
+
+    return 0;
+  }
+  else
+  {
+    int res = TAI_CONTINUE(int, sd_write_hook_ref, ctx_part, sector, buffer, nSectors);
+    return res;
+  }
+}
+
 //this hook modifies offset to data that is sent to the card
 //this is done only for game card device by checking ctx pointer with sd api
 //this is done only for commands CMD17 (read) and CMD18 (write)
@@ -124,6 +208,7 @@ int send_command_hook(sd_context_global* ctx, cmd_input* cmd_data1, cmd_input* c
     if(cmd_data1->command == 17 || cmd_data1->command == 18)
     {
       //fixup address. I have no idea why I should do it
+
       if(g_img_header_sd == 0)
       {
         //add basic offset if image header is not initialized
@@ -170,11 +255,25 @@ int init_sd_hook_physical(int sd_ctx_index, void** ctx_part)
     int res = TAI_CONTINUE(int, init_sd_hook_ref, sd_ctx_index, ctx_part);
 
     //initialize img header after card is initialized and we can read it
-    initialize_img_header();
+    int img_res = initialize_img_header();
+    #ifdef ENABLE_DEBUG_LOG
+    if(img_res < 0)
+    {
+      FILE_GLOBAL_WRITE_LEN("Failed to initialize img\n");
+    }
+    #endif
+
+    int mbr_res = initialize_mbr_header();
+    #ifdef ENABLE_DEBUG_LOG
+    if(mbr_res < 0)
+    {
+      FILE_GLOBAL_WRITE_LEN("Failed to initialize mbr\n");
+    }
+    #endif
 
     //get data from img header
-    char data_5018_buffer[0x34];
-    get_cmd56_data_physical_sd(data_5018_buffer);
+    char data_5018_buffer[CMD56_DATA_SIZE];
+    get_cmd56_data_base(g_img_header_sd, data_5018_buffer);
 
     //set data in gc memory
     set_5018_data(data_5018_buffer);
@@ -203,9 +302,31 @@ int initialize_hooks_physical_sd()
     else
       FILE_GLOBAL_WRITE_LEN("Init sd_read_hook\n");
     #endif
+
+    //write hook to emulate media-id partition
+    sd_write_hook_id = taiHookFunctionImportForKernel(KERNEL_PID, &sd_write_hook_ref, "SceSdstor", SceSdifForDriver_NID, 0xe0781171, sd_write_hook_physical);
     
-    //patch for proc_initialize_generic_2 - so that sd card type is not ignored
+    #ifdef ENABLE_DEBUG_LOG
+    if(sd_write_hook_id < 0)
+      FILE_GLOBAL_WRITE_LEN("Failed to init sd_write_hook\n");
+    else
+      FILE_GLOBAL_WRITE_LEN("Init sd_write_hook\n");
+    #endif
+    
+    //patch for proc_initialize_generic_X - so that sd card type is not ignored
     char zeroCallOnePatch[4] = {0x01, 0x20, 0x00, 0xBF};
+
+    //this patch enables initialization in partition table related subroutines
+    gen_init_1_patch_uid = taiInjectDataForKernel(KERNEL_PID, sdstor_info.modid, 0, 0x2022, zeroCallOnePatch, 4); //patch (BLX) to (MOVS R0, #1 ; NOP)
+
+    #ifdef ENABLE_DEBUG_LOG
+    if(gen_init_1_patch_uid < 0)
+      FILE_GLOBAL_WRITE_LEN("Failed to init gen_init_1_patch\n");
+    else
+      FILE_GLOBAL_WRITE_LEN("Init gen_init_1_patch\n");
+    #endif
+
+    //this patch enables generic initialization on insert
     gen_init_2_patch_uid = taiInjectDataForKernel(KERNEL_PID, sdstor_info.modid, 0, 0x2498, zeroCallOnePatch, 4); //patch (BLX) to (MOVS R0, #1 ; NOP)
 
     #ifdef ENABLE_DEBUG_LOG
@@ -213,6 +334,16 @@ int initialize_hooks_physical_sd()
       FILE_GLOBAL_WRITE_LEN("Failed to init gen_init_2_patch\n");
     else
       FILE_GLOBAL_WRITE_LEN("Init gen_init_2_patch\n");
+    #endif
+
+    //this patch enables initialization on resume
+    gen_init_3_patch_uid = taiInjectDataForKernel(KERNEL_PID, sdstor_info.modid, 0, 0x2940, zeroCallOnePatch, 4); //patch (BLX) to (MOVS R0, #1 ; NOP)
+    
+    #ifdef ENABLE_DEBUG_LOG
+    if(gen_init_3_patch_uid < 0)
+      FILE_GLOBAL_WRITE_LEN("Failed to init gen_init_3_patch\n");
+    else
+      FILE_GLOBAL_WRITE_LEN("Init gen_init_3_patch\n");
     #endif
   }
 
@@ -286,6 +417,34 @@ int deinitialize_hooks_physical_sd()
 
     sd_read_hook_id = -1;
   }
+
+  if(sd_write_hook_id >= 0)
+  {
+    int res = taiHookReleaseForKernel(sd_write_hook_id, sd_write_hook_ref);
+    
+    #ifdef ENABLE_DEBUG_LOG
+    if(res < 0)
+      FILE_GLOBAL_WRITE_LEN("Failed to deinit sd_write_hook\n");
+    else
+      FILE_GLOBAL_WRITE_LEN("Deinit sd_write_hook\n");
+    #endif
+
+    sd_write_hook_id = -1;
+  }
+
+  if(gen_init_1_patch_uid >= 0)
+  {
+    int res = taiInjectReleaseForKernel(gen_init_1_patch_uid);
+
+    #ifdef ENABLE_DEBUG_LOG
+    if(res < 0)
+      FILE_GLOBAL_WRITE_LEN("Failed to deinit gen_init_1_patch\n");
+    else
+      FILE_GLOBAL_WRITE_LEN("Deinit gen_init_1_patch\n");
+    #endif
+
+    gen_init_1_patch_uid = -1;
+  }
   
   if(gen_init_2_patch_uid >= 0)
   {
@@ -299,6 +458,20 @@ int deinitialize_hooks_physical_sd()
     #endif
 
     gen_init_2_patch_uid = -1;
+  }
+
+  if(gen_init_3_patch_uid >= 0)
+  {
+    int res = taiInjectReleaseForKernel(gen_init_3_patch_uid);
+
+    #ifdef ENABLE_DEBUG_LOG
+    if(res < 0)
+      FILE_GLOBAL_WRITE_LEN("Failed to deinit gen_init_3_patch\n");
+    else
+      FILE_GLOBAL_WRITE_LEN("Deinit gen_init_3_patch\n");
+    #endif
+
+    gen_init_3_patch_uid = -1;
   }
 
   if(hs_dis_patch1_uid >= 0)
@@ -357,6 +530,7 @@ int deinitialize_hooks_physical_sd()
     send_command_hook_id = -1;
   }
 
+  deinitialize_mbr_header();
   deinitialize_img_header();
 
   return 0;
