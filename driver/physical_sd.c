@@ -8,16 +8,13 @@
 #include "reader.h"
 #include "psv_types.h"
 #include "media_id_emu.h"
+#include "sd_emu.h"
 #include "defines.h"
 
 #include <taihen.h>
 #include <module.h>
 
 #include <string.h>
-
-//by some unknown reason real sectors on the sd card start from 0x8000
-//TODO: I need to figure out this later
-#define SD_ADDRESS_OFFSET 0x8000
 
 // ======= img header and mbr init for physical mode ======= 
 
@@ -201,24 +198,27 @@ int sd_write_hook_physical(void* ctx_part, int sector, char* buffer, int nSector
 
 //this hook modifies offset to data that is sent to the card
 //this is done only for game card device by checking ctx pointer with sd api
-//this is done only for commands CMD17 (read) and CMD18 (write)
+//this is done only for commands CMD17 (read) and CMD18 (read multiple)
+//                               CMD24 (write) and CMD25 (write multiple)
 int send_command_hook(sd_context_global* ctx, cmd_input* cmd_data1, cmd_input* cmd_data2, int nIter, int num)
 {
   if(ksceSdifGetSdContextGlobal(SCE_SDIF_DEV_GAME_CARD) == ctx)
   {
-    if(cmd_data1->command == 17 || cmd_data1->command == 18)
+    if(cmd_data1->command == READ_SINGLE_BLOCK || cmd_data1->command == READ_MULTIPLE_BLOCK)
     {
-      //fixup address. I have no idea why I should do it
-
-      if(g_img_header_sd == 0)
+      //add image offset if image header is initialized
+      if(g_img_header_sd > 0)
       {
-        //add basic offset if image header is not initialized
-        cmd_data1->argument = cmd_data1->argument + SD_ADDRESS_OFFSET;
+        cmd_data1->argument = cmd_data1->argument + g_img_header_sd->image_offset_sector;
       }
-      else
+    }
+
+    if(cmd_data1->command == WRITE_BLOCK || cmd_data1->command == WRITE_MULTIPLE_BLOCK)
+    {
+      //add image offset if image header is initialized
+      if(g_img_header_sd > 0)
       {
-        //add basic offset and image offset if image header is initialized
-        cmd_data1->argument = cmd_data1->argument + SD_ADDRESS_OFFSET + g_img_header_sd->image_offset_sector;
+        cmd_data1->argument = cmd_data1->argument + g_img_header_sd->image_offset_sector;
       }
     }
 
