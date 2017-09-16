@@ -5,10 +5,14 @@
 
 #include "sector_api.h"
 
+#pragma pack(push, 1)
+
 typedef struct SceKernelCondOptParam 
 {
 	SceSize size;
 } SceKernelCondOptParam;
+
+#pragma pack(pop)
 
 typedef SceUID (sceKernelCreateCondForDriver_t)(const char* name, SceUInt attr, SceUID mutexId, const SceKernelCondOptParam* option);
 typedef int (sceKernelDeleteCondForDriver_t)(SceUID cid);
@@ -20,6 +24,19 @@ typedef int (sceKernelInitializeFastMutexForDriver_t)(fast_mutex* mutex, const c
 typedef int (sceKernelDeleteFastMutexForDriver_t)(fast_mutex* mutex);
 typedef int (sceKernelGetMutexInfoForDriver_t)(SceUID mutexid, SceKernelMutexInfo *info);
 
+#pragma pack(push, 1)
+
+typedef struct sha256_ctx
+{
+  char data[0x94];
+}sha256_ctx;
+
+#pragma pack(pop)
+
+typedef int (sceSha256BlockInitForDriver_t)(sha256_ctx* ctx);
+typedef int (sceSha256BlockUpdateForDriver_t)(sha256_ctx* ctx, char* data, int size);
+typedef int (sceSha256BlockResultForDriver_t)(sha256_ctx* ctx, char* digest);
+
 extern sceKernelCreateCondForDriver_t* sceKernelCreateCondForDriver;
 extern sceKernelDeleteCondForDriver_t* sceKernelDeleteCondForDriver;
 extern sceKernelWaitCondForDriver_t* sceKernelWaitCondForDriver;
@@ -30,10 +47,16 @@ extern sceKernelInitializeFastMutexForDriver_t* sceKernelInitializeFastMutexForD
 extern sceKernelDeleteFastMutexForDriver_t* sceKernelDeleteFastMutexForDriver;
 extern sceKernelGetMutexInfoForDriver_t* sceKernelGetMutexInfoForDriver;
 
+extern sceSha256BlockInitForDriver_t* sceSha256BlockInitForDriver;
+extern sceSha256BlockUpdateForDriver_t* sceSha256BlockUpdateForDriver;
+extern sceSha256BlockResultForDriver_t* sceSha256BlockResultForDriver;
+
 int initialize_functions();
 
 #define SCE_KERNEL_SYS_EVENT_SUSPEND 0
 #define SCE_KERNEL_SYS_EVENT_RESUME 1
+
+#pragma pack(push, 1)
 
 typedef struct 
 {
@@ -53,6 +76,8 @@ typedef struct
 	uint8_t unk_6;
 	uint8_t unk_7;
 }sysevent_opt_t;
+
+#pragma pack(pop)
 
 typedef int (sysevent_callback_t)(int resume, int eventid, sysevent_args_t* args, sysevent_opt_t* opt);
 

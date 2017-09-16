@@ -18,6 +18,10 @@ sceKernelInitializeFastMutexForDriver_t* sceKernelInitializeFastMutexForDriver =
 sceKernelDeleteFastMutexForDriver_t* sceKernelDeleteFastMutexForDriver = 0;
 sceKernelGetMutexInfoForDriver_t* sceKernelGetMutexInfoForDriver = 0;
 
+sceSha256BlockInitForDriver_t* sceSha256BlockInitForDriver = 0;
+sceSha256BlockUpdateForDriver_t* sceSha256BlockUpdateForDriver = 0;
+sceSha256BlockResultForDriver_t* sceSha256BlockResultForDriver = 0;
+
 int initialize_functions()
 {
   int res = module_get_export_func(KERNEL_PID, "SceKernelThreadMgr", SceThreadmgrForDriver_NID, 0xDB6CD34A, (uintptr_t*)&sceKernelCreateCondForDriver);
@@ -130,6 +134,48 @@ int initialize_functions()
 
   #ifdef ENABLE_DEBUG_LOG
   FILE_GLOBAL_WRITE_LEN("set sceKernelGetMutexInfoForDriver\n");
+  #endif
+
+  res = module_get_export_func(KERNEL_PID, "SceSysmem", SceKernelUtilsForDriver_NID, 0xd909fa2c, (uintptr_t*)&sceSha256BlockInitForDriver);
+  if(res < 0)
+  {
+    #ifdef ENABLE_DEBUG_LOG
+    snprintf(sprintfBuffer, 256, "failed to get sceSha256BlockInitForDriver : %x\n", res);
+    FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
+    #endif
+    return -1;
+  }
+
+  #ifdef ENABLE_DEBUG_LOG
+  FILE_GLOBAL_WRITE_LEN("set sceSha256BlockInitForDriver\n");
+  #endif
+
+  res = module_get_export_func(KERNEL_PID, "SceSysmem", SceKernelUtilsForDriver_NID, 0x236a9097, (uintptr_t*)&sceSha256BlockUpdateForDriver);
+  if(res < 0)
+  {
+    #ifdef ENABLE_DEBUG_LOG
+    snprintf(sprintfBuffer, 256, "failed to get sceSha256BlockUpdateForDriver : %x\n", res);
+    FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
+    #endif
+    return -1;
+  }
+
+  #ifdef ENABLE_DEBUG_LOG
+  FILE_GLOBAL_WRITE_LEN("set sceSha256BlockUpdateForDriver\n");
+  #endif
+
+  res = module_get_export_func(KERNEL_PID, "SceSysmem", SceKernelUtilsForDriver_NID, 0x4899cd4b, (uintptr_t*)&sceSha256BlockResultForDriver);
+  if(res < 0)
+  {
+    #ifdef ENABLE_DEBUG_LOG
+    snprintf(sprintfBuffer, 256, "failed to get sceSha256BlockResultForDriver : %x\n", res);
+    FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
+    #endif
+    return -1;
+  }
+
+  #ifdef ENABLE_DEBUG_LOG
+  FILE_GLOBAL_WRITE_LEN("set sceSha256BlockResultForDriver\n");
   #endif
 
   return 0;
