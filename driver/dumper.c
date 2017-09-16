@@ -14,6 +14,7 @@
 #include "cmd56_key.h"
 #include "psv_types.h"
 #include "functions.h"
+#include "reader.h"
 #include "defines.h"
 
 #define DUMP_STATE_START 1
@@ -167,7 +168,7 @@ int dump_img(SceUID dev_fd, SceUID out_fd, const MBR* dump_mbr)
 int dump_header(SceUID dev_fd, SceUID out_fd, const MBR* dump_mbr)
 {
   //get data from gc memory
-  char data_5018_buffer[0x34];
+  char data_5018_buffer[CMD56_DATA_SIZE];
   get_5018_data(data_5018_buffer);
 
   //construct header

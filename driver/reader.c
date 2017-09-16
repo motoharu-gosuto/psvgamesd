@@ -10,7 +10,6 @@
 #include "global_log.h"
 #include "mbr_types.h"
 #include "functions.h"
-#include "psv_types.h"
 #include "defines.h"
 
 SceUID readThreadId = -1;
@@ -146,13 +145,18 @@ int get_img_header(const char* path)
   return -1;
 }
 
-int get_cmd56_data(char* buffer)
+int get_cmd56_data_base(psv_file_header_v1* ih, char* buffer)
 {
-  memcpy(buffer, g_img_header.key1, 0x10);
-  memcpy(buffer + 0x10, g_img_header.key2, 0x10);
-  memcpy(buffer + 0x20, g_img_header.signature, 0x14);
+  memcpy(buffer, ih->key1, 0x10);
+  memcpy(buffer + 0x10, ih->key2, 0x10);
+  memcpy(buffer + 0x20, ih->signature, 0x14);
   
   return 0;
+}
+
+int get_cmd56_data(char* buffer)
+{
+  return get_cmd56_data_base(&g_img_header, buffer);
 }
 
 char iso_path[256] = {0};

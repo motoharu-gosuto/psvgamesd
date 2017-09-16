@@ -1,5 +1,7 @@
 #pragma once
 
+#include <stdint.h>
+
 #define SCEHeader "Sony Computer Entertainment Inc."
 
 #define MAX_MBR_PARTITIONS 16

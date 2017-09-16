@@ -10,6 +10,8 @@
 #include <taihen.h>
 #include <module.h>
 
+#include "reader.h"
+
 //this function sets all sensitive data in GcAuthMgr 
 int set_5018_data(const char* data_5018_buffer)
 {
@@ -21,7 +23,7 @@ int set_5018_data(const char* data_5018_buffer)
     int ofstRes = module_get_offset(KERNEL_PID, gc_info.modid, 1, 0x5018, &addr);
     if(ofstRes == 0)
     {
-      memcpy((char*)addr, data_5018_buffer, 0x34);
+      memcpy((char*)addr, data_5018_buffer, CMD56_DATA_SIZE);
     }
   }
 
@@ -39,7 +41,7 @@ int get_5018_data(char* data_5018_buffer)
     int ofstRes = module_get_offset(KERNEL_PID, gc_info.modid, 1, 0x5018, &addr);
     if(ofstRes == 0)
     {
-      memcpy(data_5018_buffer, (char*)addr, 0x34);
+      memcpy(data_5018_buffer, (char*)addr, CMD56_DATA_SIZE);
     }
   }
 
