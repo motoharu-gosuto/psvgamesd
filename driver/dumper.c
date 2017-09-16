@@ -4,6 +4,8 @@
 #include <psp2kern/io/fcntl.h>
 #include <psp2kern/kernel/suspend.h>
 #include <psp2kern/kernel/threadmgr.h>
+#include <psp2kern/io/dirent.h>
+#include <psp2kern/io/stat.h>
 
 #include <stdio.h>
 #include <string.h>
@@ -16,6 +18,8 @@
 #include "functions.h"
 #include "reader.h"
 #include "defines.h"
+
+#define ISO_ROOT_DIRECTORY "ux0:iso"
 
 #define DUMP_STATE_START 1
 #define DUMP_STATE_STOP 0
@@ -452,8 +456,43 @@ int dump_poll_thread(SceSize args, void* argp)
   return 0;
 }
 
+int create_iso_directory()
+{
+  SceUID dirId = ksceIoDopen(ISO_ROOT_DIRECTORY);
+  if(dirId >= 0)
+  {
+    #ifdef ENABLE_DEBUG_LOG
+    FILE_GLOBAL_WRITE_LEN("Root iso directory exists\n");
+    #endif
+
+    int res = ksceIoDclose(dirId);
+    #ifdef ENABLE_DEBUG_LOG
+    if(res < 0)
+    {
+      snprintf(sprintfBuffer, 256, "Failed to close iso root directory: %x\n", res);
+      FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
+    }
+    #endif
+  }
+  else
+  {
+    int res = ksceIoMkdir(ISO_ROOT_DIRECTORY, 0777);
+    #ifdef ENABLE_DEBUG_LOG
+    if(res < 0)
+    {
+      snprintf(sprintfBuffer, 256, "Failed to create iso root directory: %x\n", res);
+      FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
+    }
+    #endif
+  }
+
+  return 0;
+}
+
 int initialize_dump_threading()
 {
+  create_iso_directory();
+
   g_total_sectors_mutex_id = ksceKernelCreateMutex("total_sectors_mutex", 0, 0, 0);
   #ifdef ENABLE_DEBUG_LOG
   if(g_total_sectors_mutex_id >= 0)
