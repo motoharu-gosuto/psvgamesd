@@ -400,6 +400,8 @@ int initialize_hooks_physical_sd()
     #endif
   }
 
+  init_media_id_emu();
+
   return 0;
 }
 
@@ -533,6 +535,7 @@ int deinitialize_hooks_physical_sd()
 
   deinitialize_mbr_header();
   deinitialize_img_header();
+  deinit_media_id_emu();
 
   return 0;
 }

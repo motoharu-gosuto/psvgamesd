@@ -218,6 +218,7 @@ int initialize_hooks_virtual_mmc()
   }
 
   initialize_ins_rem();
+  init_media_id_emu();
 
   return 0;
 }
@@ -309,6 +310,7 @@ int deinitialize_hooks_virtual_mmc()
   }
 
   deinitialize_ins_rem();
+  deinit_media_id_emu();
 
   return 0;
 }

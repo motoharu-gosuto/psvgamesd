@@ -73,11 +73,16 @@ const PartitionEntry* call_find_partition_entry(const char* block_dev_name, int 
 
 char media_id[SD_DEFAULT_SECTOR_SIZE] = {0};
 
+int media_id_sector_cached = -1;
+
 //if result is -1 - error
 //if result is 0 - not a media-id partition
 //if result is 1 - media-id was written
 int write_media_id(const MBR* mbr, int sector, char* buffer, int nSectors)
 {
+  if(media_id_sector_cached > 0 && sector != media_id_sector_cached)
+    return 0;
+
   const PartitionEntry* pe = call_find_partition_entry(mbr, GC_MEDIA_ID_BLOCK_DEV, 0x12);
   if(pe > 0)
   {
@@ -91,6 +96,8 @@ int write_media_id(const MBR* mbr, int sector, char* buffer, int nSectors)
 
         memcpy(media_id, buffer, SD_DEFAULT_SECTOR_SIZE);
 
+        if(media_id_sector_cached < 0)
+          media_id_sector_cached = sector;
         return 1;
       }
       else
@@ -123,6 +130,9 @@ int write_media_id(const MBR* mbr, int sector, char* buffer, int nSectors)
 //if result is 1 - media-id was written
 int read_media_id(const MBR* mbr, int sector, char* buffer, int nSectors)
 {
+  if(media_id_sector_cached > 0 && sector != media_id_sector_cached)
+    return 0;
+
   const PartitionEntry* pe = call_find_partition_entry(mbr, GC_MEDIA_ID_BLOCK_DEV, 0x12);
   if(pe > 0)
   {
@@ -136,6 +146,8 @@ int read_media_id(const MBR* mbr, int sector, char* buffer, int nSectors)
 
         memcpy(buffer, media_id, SD_DEFAULT_SECTOR_SIZE);
 
+        if(media_id_sector_cached < 0)
+          media_id_sector_cached = sector;
         return 1;
       }
       else
@@ -162,3 +174,18 @@ int read_media_id(const MBR* mbr, int sector, char* buffer, int nSectors)
     return -1;
   }
 }
+
+int init_media_id_emu()
+{
+  memset(media_id, 0, SD_DEFAULT_SECTOR_SIZE);
+  media_id_sector_cached = -1;
+  return 0;
+}
+
+int deinit_media_id_emu()
+{
+  memset(media_id, 0, SD_DEFAULT_SECTOR_SIZE);
+  media_id_sector_cached = -1;
+  return 0;
+}
+
