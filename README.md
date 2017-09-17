@@ -57,9 +57,10 @@ Upon launching user app you will be presented with console UI.
 ## Physical MMC mode - Producing Game Card Dumps
 - Press "Up" or "Down" to navigate through dump files
 - Press "Cross" to start dumping the came card.
-  This option is only available if game card is inserted.
+  This option is only available if real game card is inserted.
   Insertion status is shown on line "content id:".
   Dump progress is shown on line "dump progress:".
+  Dump file is stored at ux0:iso folder.
 - Press "Square" to stop dumping the came card.
   This options is only available when dump process is started.
 - Press "Triangle" to exit application.
@@ -77,3 +78,43 @@ Upon launching user app you will be presented with console UI.
 ## Physical SD mode - Running Game Card Dump
 - Press "Up" or "Down" to navigate through dump files
 - Press "Triangle" to exit application.
+
+# Use cases
+
+## Typical Emulation use case
+- Use physical mmc mode to produce 1:1 dump of the game card.
+- Use virtual mmc or virtual sd mode to run the game.
+
+## Typical Physical Storage use case
+- Use physical mmc mode to produce 1:1 dump of the game card.
+- Use your favorite tool or hex editor to burn this dump to SD card.
+- Use physical sd mode to run the game.
+
+# Legacy ways to dump the came card
+
+## Custom board
+
+Use custom board. You can check how it can be built here:
+https://github.com/motoharu-gosuto/psvcd
+
+There are two modes that can be used there.
+- Use PS Vita as black box (cmd56 handshake is done by PS Vita)
+- Use PS Vita F00D as black box (cmd56 handshake is done by board)
+
+For second approach you will need kirk plugins that are located here
+https://github.com/motoharu-gosuto/psvkirk
+
+Code for second approach is not finished. It only does cmd56 handshake.
+However you can use the code from first approach to dump the card.
+Only little changes are required.
+
+## PSVEMMC client
+
+https://github.com/motoharu-gosuto/psvemmc
+
+Unfortunately dumping client is not finished. 
+It is only capable of doing a dump per partition.
+It does not dump SCEI MBR and does not combine partition dumps into single binary file.
+However only little changes are required to make it dump SCEI MBR.
+You can then combine dumps with your favorite hex editor.
+
