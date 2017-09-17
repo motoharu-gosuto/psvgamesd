@@ -121,3 +121,8 @@ You can then combine dumps with your favorite hex editor.
 # CMD56 handshake
 
 Data from the handshake is required to pass signature checks and obtain klicensee. It is integrated into dump file. When game card is inserted in physical mmc mode signature and keys are intercepted and saved to dump file later.
+
+# Special thanks
+- Thanks to Team molecule for HENkaku and thanks to Yifan Lu for taiHEN.
+- Thanks to Proxima for explaining klicensee theory.
+- Thanks to SonyUSA for helping with initial testing.
