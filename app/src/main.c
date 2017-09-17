@@ -42,6 +42,14 @@
 
 //---
 
+#define INSERTION_DELAY (2 * 1000 * 1000)
+#define DUMP_STATUS_POLL_DELAY (1 * 1000 * 1000)
+#define CONTENT_ID_POLL_DELAY (1 * 1000 * 1000)
+#define INSERT_STATUS_POLL_DELAY (1 * 1000 * 1000)
+#define APP_EXIT_DELAY (2 * 1000 * 1000)
+
+//---
+
 int lock_ps_btn = 0;
 
 void ps_btn_lock() 
@@ -494,7 +502,7 @@ int SCE_CTRL_START_callback()
           insert_card();
 
           //wait 2 seconds for insertion
-          sceKernelDelayThread(2 * 1000 * 1000);
+          sceKernelDelayThread(INSERTION_DELAY);
 
           //redraw screen
           set_redraw_request(1);
@@ -537,7 +545,7 @@ int SCE_CTRL_SELECT_callback()
           remove_card();
 
           //wait 2 seconds for removal
-          sceKernelDelayThread(2 * 1000 * 1000);
+          sceKernelDelayThread(INSERTION_DELAY);
 
           //redraw screen
           set_redraw_request(1);
@@ -761,7 +769,7 @@ int SCE_CTRL_RIGHT_callback()
           remove_card();
 
           //wait 2 seconds for removal
-          sceKernelDelayThread(2 * 1000 * 1000);
+          sceKernelDelayThread(INSERTION_DELAY);
         }
   
         //clear iso variable
@@ -823,7 +831,7 @@ int SCE_CTRL_LEFT_callback()
           remove_card();
 
           //wait 2 seconds for removal
-          sceKernelDelayThread(2 * 1000 * 1000);
+          sceKernelDelayThread(INSERTION_DELAY);
         }
   
         //clear iso variable
@@ -925,7 +933,7 @@ int SCE_CTRL_CIRCLE_callback()
             remove_card();
 
             //wait 2 seconds for removal
-            sceKernelDelayThread(2 * 1000 * 1000);
+            sceKernelDelayThread(INSERTION_DELAY);
           }
 
           //construct path to new iso
@@ -958,7 +966,7 @@ int dump_status_poll_thread_internal(SceSize args, void* argp)
   while(1)
   {
     //wait 1 second
-    sceKernelDelayThread(1 * 1000 * 1000);
+    sceKernelDelayThread(DUMP_STATUS_POLL_DELAY);
 
     //get stats from kernel
     uint32_t total_sectors = dump_mmc_get_total_sectors(); 
@@ -1073,7 +1081,7 @@ int check_insert_update_content_id(int prev_ins_state)
         int nRetries = 0;
         while(nRetries < 5)
         {
-          sceKernelDelayThread(1 * 1000 * 1000);
+          sceKernelDelayThread(CONTENT_ID_POLL_DELAY);
 
           //try to get content id
           char cnt_id[SFO_MAX_STR_VALUE_LEN];
@@ -1114,7 +1122,7 @@ int insert_status_poll_thread(SceSize args, void* argp)
   while(get_app_running() > 0)
   {
     //wait 1 second
-    sceKernelDelayThread(1 * 1000 * 1000);
+    sceKernelDelayThread(INSERT_STATUS_POLL_DELAY);
 
     //check physical insert state - poll
     prev_ins_state = check_insert_update_content_id(prev_ins_state);
@@ -1681,7 +1689,7 @@ int main(int argc, char *argv[])
   //unlock ps button back upon exit
   ps_btn_unlock();
 
-  sceKernelDelayThread(2 * 1000 * 1000);
+  sceKernelDelayThread(APP_EXIT_DELAY);
 
   sceKernelExitProcess(0);
   return 0;
