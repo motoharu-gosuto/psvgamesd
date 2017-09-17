@@ -90,6 +90,11 @@ Upon launching user app you will be presented with console UI.
 - Use your favorite tool or hex editor to burn this dump to SD card.
 - Use physical sd mode to run the game.
 
+# Reporting issues
+
+Feel free to report bugs/issues here:
+https://github.com/motoharu-gosuto/psvgamesd/issues
+
 # Legacy ways to dump the came card
 
 ## Custom board
