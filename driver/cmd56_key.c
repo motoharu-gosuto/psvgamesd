@@ -1,3 +1,11 @@
+/* cmd56_key.c
+ *
+ * Copyright (C) 2017 Motoharu Gosuto
+ *
+ * This software may be modified and distributed under the terms
+ * of the MIT license.  See the LICENSE file for details.
+ */
+
 #include "cmd56_key.h"
 
 #include <psp2kern/types.h>

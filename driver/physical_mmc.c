@@ -1,3 +1,11 @@
+/* physical_mmc.c
+ *
+ * Copyright (C) 2017 Motoharu Gosuto
+ *
+ * This software may be modified and distributed under the terms
+ * of the MIT license.  See the LICENSE file for details.
+ */
+
 #include "physical_mmc.h"
 
 #include "hook_ids.h"

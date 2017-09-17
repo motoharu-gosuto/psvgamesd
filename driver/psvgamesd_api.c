@@ -1,3 +1,11 @@
+/* psvgamesd_api.c
+ *
+ * Copyright (C) 2017 Motoharu Gosuto
+ *
+ * This software may be modified and distributed under the terms
+ * of the MIT license.  See the LICENSE file for details.
+ */
+
 #include "psvgamesd_api.h" 
 
 #include <psp2kern/kernel/sysmem.h>

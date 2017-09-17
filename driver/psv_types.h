@@ -1,3 +1,11 @@
+/* psv_types.h
+ *
+ * Copyright (C) 2017 Motoharu Gosuto, Yifan Lu, devnoname120
+ *
+ * This software may be modified and distributed under the terms
+ * of the MIT license.  See the LICENSE file for details.
+ */
+
 /**
  * Motivation: One unified .psv format for archiving (preserving) Vita games.
  * The goal is to preserve as much of the original game structure while ensuring
@@ -40,11 +48,6 @@
 
 // active discussion on the format goes here
 // https://gist.github.com/yifanlu/d546e687f751f951b1109ffc8dd8d903
-
-//format authors:
-//yifanlu
-//motoharu
-//devnoname120
 
 #pragma once
 
