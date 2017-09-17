@@ -8,12 +8,12 @@ if(NOT DEFINED CMAKE_TOOLCHAIN_FILE)
   endif()
 endif()
 
-set(SHORT_NAME psvgamesd)
+set(SHORT_NAME psvgc)
 project(${SHORT_NAME})
 include("${VITASDK}/share/vita.cmake" REQUIRED)
 
-set(VITA_APP_NAME "psvgamesd")
-set(VITA_TITLEID  "GMSD00001")
+set(VITA_APP_NAME "Virtual GC")
+set(VITA_TITLEID  "PSVGC0001")
 
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=gnu11")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
