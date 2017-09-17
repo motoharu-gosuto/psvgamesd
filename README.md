@@ -118,3 +118,6 @@ It does not dump SCEI MBR and does not combine partition dumps into single binar
 However only little changes are required to make it dump SCEI MBR.
 You can then combine dumps with your favorite hex editor.
 
+# CMD56 handshake
+
+Data from the handshake is required to pass signature checks and obtain klicensee. It is integrated into dump file. When game card is inserted in physical mmc mode signature and keys are intercepted and saved to dump file later.
