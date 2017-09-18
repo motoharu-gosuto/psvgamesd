@@ -44,6 +44,8 @@ There are some game cards that have write partition. It allows to write on game 
 
 Currently such game cards are not supported. This is planned for next release.
 
+If you want to help me with this issue, please drop a comment at: https://github.com/motoharu-gosuto/psvgamesd/issues/10
+
 # Installation
 
 ## Install kernel plugin
@@ -99,6 +101,21 @@ Upon launching user app you will be presented with console UI.
 - Use physical mmc mode to produce 1:1 dump of the game card.
 - Use your favorite tool or hex editor to burn this dump to SD card.
 - Use physical sd mode to run the game.
+
+# Huge dump size, trimming, compression etc
+
+## Trimming zeroes
+
+I see quite a lot of complaints about size of the .psv files. 
+I guess I should have explained it from the start.
+Initial design of the format assumes that 1 to 1 dumps are produced.
+However you have a total freedom to derive a trimmed version of the dump from the original file.
+All you have to do is to remove zeroes in the end of the file using any hex editor.
+Keep in mind that data is 512 byte aligned. Then set corresponding FLAG_TRIMMED flag in the header of the file.
+
+## Compression
+
+At this point in time compression does not make much sense since data in the dump is encrypted.
 
 # Reporting issues
 
