@@ -11,6 +11,10 @@ This application is designed for two main tasks:
 Aplication consists of user application that manages the driver settings and kernel plugin
 that is used to emulate game card.
 
+# Dumper comparsion (Thanks to Yifan)
+
+https://gist.github.com/yifanlu/bcc8ebb102704ae136c650a912c6f70c
+
 # Requirements
 
 - henkaku
@@ -33,6 +37,12 @@ If you are going to use this plugin - disable gamesd.skprx
 Ideally it is recommented to remove sd2vita adapter. However when inserted - it should be ignored by this plugin.
 
 **Integration with sd2vita is planned for next release.**
+
+# Compatibility with game cards that have grw0: partition
+
+There are some game cards that have write partition. It allows to write on game card.
+
+Currently such game cards are not supported. This is planned for next release.
 
 # Installation
 
