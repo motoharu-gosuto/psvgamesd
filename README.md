@@ -123,8 +123,11 @@ I see quite a lot of complaints about size of the .psv files.
 I guess I should have explained it from the start.
 Initial design of the format assumes that 1 to 1 dumps are produced.
 However you have a total freedom to derive a trimmed version of the dump from the original file.
-All you have to do is to remove zeroes in the end of the file using any hex editor.
-Keep in mind that data is 512 byte aligned. Then set corresponding FLAG_TRIMMED flag in the header of the file.
+Ideal solution is to create a tool that does the trimming. 
+Solution for experienced users is to remove zeroes in the end of the file using hex editor.
+However you **have to make sure** that you are only deleting zeroes.
+You also have to keep in mind that data is 512 byte aligned. 
+After trimming - you can set corresponding FLAG_TRIMMED flag in the header of the file.
 
 ## Compression
 
