@@ -26,6 +26,19 @@ https://gist.github.com/yifanlu/bcc8ebb102704ae136c650a912c6f70c
 - This software is meant to be strictly reserved for your own **PERSONAL USE**.
 - The author does not take any responsibility for your actions using this software.
 
+# Relation to Cobra Blackfin
+
+I see that lots of people are trying to relate my research and project to the Cobra Blackfin. This happens in two major ways. 
+
+## Relation to Cobra Blackfin research
+
+Some are trying to relate to so called "leak" that was recently published here: http://wololo.net/2017/09/13/vita-reverse-engineering-leak-cobra-blackfin-part-1/
+I can claim that there is nothing new for me in that "leak". My research was always open to the public and is completely independent from Cobra Blackfin. During the developement I have stated and explained this many times. You can also check it here in my first publication that happened year ago: https://github.com/motoharu-gosuto/psvcd. Please read closely the Introduction.
+
+## Relation to Cobra Blackfin .psv format
+
+Others are trying to relate to the .psv format of Cobra Blackfin. I can claim that the format that we have develped with Yifan and devnoname120 is a completely independent format and has nothing to do with Cobra Blackfin. I hope you can make the differences by reading this: https://github.com/motoharu-gosuto/psvgamesd/blob/master/driver/psv_types.h As well as checking this developement thread: https://gist.github.com/yifanlu/d546e687f751f951b1109ffc8dd8d903
+
 # Compatibility with sd2vita adapter
 
 This plugin is not compatible with sd2vita adapter and corresponding gamesd.skprx plugin.
