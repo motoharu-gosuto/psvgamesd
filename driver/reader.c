@@ -158,7 +158,7 @@ int get_cmd56_data_base(psv_file_header_v1* ih, char* buffer)
   memcpy(buffer, ih->key1, 0x10);
   memcpy(buffer + 0x10, ih->key2, 0x10);
   memcpy(buffer + 0x20, ih->signature, 0x14);
-  
+
   return 0;
 }
 
@@ -208,7 +208,7 @@ int emulate_read(int sector, char* buffer, int nSectors)
     else
     {
       memset(buffer, 0, size);
-      res = SD_UNKNOWN_READ_WRITE_ERROR; 
+      res = SD_UNKNOWN_READ_WRITE_ERROR;
     }
   }
   else
@@ -267,11 +267,11 @@ int read_thread(SceSize args, void *argp)
     #endif
 
     //wait for request
-    res = sceKernelWaitCondForDriver(req_cond, 0);
+    res = ksceKernelWaitCond(req_cond, 0);
     #ifdef ENABLE_DEBUG_LOG
     if(res < 0)
     {
-      snprintf(sprintfBuffer, 256, "failed to sceKernelWaitCondForDriver req_cond : %x\n", res);
+      snprintf(sprintfBuffer, 256, "failed to ksceKernelWaitCond req_cond : %x\n", res);
       FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
     }
     #endif
@@ -285,15 +285,15 @@ int read_thread(SceSize args, void *argp)
       FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
     }
     #endif
-    
+
     g_res = emulate_read(g_sector, g_buffer, g_nSectors);
 
     //return response
-    sceKernelSignalCondForDriver(resp_cond);
+    ksceKernelSignalCond(resp_cond);
   }
-  
-  return 0;  
-} 
+
+  return 0;
+}
 
 int initialize_read_threading()
 {
@@ -303,7 +303,7 @@ int initialize_read_threading()
     FILE_GLOBAL_WRITE_LEN("Created req_lock\n");
   #endif
 
-  req_cond = sceKernelCreateCondForDriver("req_cond", 0, req_lock, 0);
+  req_cond = ksceKernelCreateCond("req_cond", 0, req_lock, 0);
   #ifdef ENABLE_DEBUG_LOG
   if(req_cond >= 0)
     FILE_GLOBAL_WRITE_LEN("Created req_cond\n");
@@ -315,12 +315,12 @@ int initialize_read_threading()
     FILE_GLOBAL_WRITE_LEN("Created resp_lock\n");
   #endif
 
-  resp_cond = sceKernelCreateCondForDriver("resp_cond", 0, resp_lock, 0);
+  resp_cond = ksceKernelCreateCond("resp_cond", 0, resp_lock, 0);
   #ifdef ENABLE_DEBUG_LOG
   if(resp_cond >= 0)
     FILE_GLOBAL_WRITE_LEN("Created resp_cond\n");
   #endif
-  
+
   readThreadId = ksceKernelCreateThread("ReadThread", &read_thread, 0x64, 0x1000, 0, 0, 0);
 
   if(readThreadId >= 0)
@@ -341,20 +341,20 @@ int deinitialize_read_threading()
   {
     int waitRet = 0;
     ksceKernelWaitThreadEnd(readThreadId, &waitRet, 0);
-    
+
     int delret = ksceKernelDeleteThread(readThreadId);
     readThreadId = -1;
   }
 
   if(req_cond >= 0)
   {
-    sceKernelDeleteCondForDriver(req_cond);
+    ksceKernelDeleteCond(req_cond);
     req_cond = -1;
   }
-  
+
   if(resp_cond >= 0)
   {
-    sceKernelDeleteCondForDriver(resp_cond);
+    ksceKernelDeleteCond(resp_cond);
     resp_cond = -1;
   }
 

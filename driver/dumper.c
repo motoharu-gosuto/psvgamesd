@@ -12,6 +12,7 @@
 #include <psp2kern/io/fcntl.h>
 #include <psp2kern/kernel/suspend.h>
 #include <psp2kern/kernel/threadmgr.h>
+#include <psp2kern/kernel/utils.h>
 #include <psp2kern/io/dirent.h>
 #include <psp2kern/io/stat.h>
 
@@ -129,7 +130,7 @@ int dump_header(SceUID dev_fd, SceUID out_fd, const MBR* dump_mbr, const char* s
   memcpy(img_header.key1, data_5018_buffer, 0x10);
   memcpy(img_header.key2, data_5018_buffer + 0x10, 0x10);
   memcpy(img_header.signature, data_5018_buffer + 0x20, 0x14);
-  
+
   if(sha256_digest == 0)
     memset(img_header.hash, 0, 0x20);
   else
@@ -150,7 +151,7 @@ int dump_header(SceUID dev_fd, SceUID out_fd, const MBR* dump_mbr, const char* s
   memset(padding_data, 0, SD_DEFAULT_SECTOR_SIZE);
 
   ksceIoWrite(out_fd, padding_data, padding_size);
-  
+
   return 0;
 }
 
@@ -169,9 +170,9 @@ int dump_img(SceUID dev_fd, SceUID out_fd, const MBR* dump_mbr)
   set_progress_sectors(0);
 
   //init sha256
-  sha256_ctx ctx;
-  memset((char*)&ctx, 0, sizeof(sha256_ctx));
-  sceSha256BlockInitForDriver(&ctx);
+  SceSha256Context ctx;
+  memset((char*)&ctx, 0, sizeof(SceSha256Context));
+  ksceSha256BlockInit(&ctx);
 
   //dump sectors - main part
   SceSize nBlocks = dump_mbr->sizeInBlocks / DUMP_BLOCK_SIZE;
@@ -190,7 +191,7 @@ int dump_img(SceUID dev_fd, SceUID out_fd, const MBR* dump_mbr)
       //report number of sectors that are dumped
       set_progress_sectors(i * DUMP_BLOCK_SIZE);
 
-      //check dump cancel request 
+      //check dump cancel request
       //maybe it can be done on each iteration
       //but I think it will be slow
       uint32_t rn_state = get_running_state();
@@ -209,7 +210,7 @@ int dump_img(SceUID dev_fd, SceUID out_fd, const MBR* dump_mbr)
     ksceIoWrite(out_fd, dump_buffer, SD_DEFAULT_SECTOR_SIZE * DUMP_BLOCK_SIZE);
 
     //update sha256
-    sceSha256BlockUpdateForDriver(&ctx, dump_buffer, SD_DEFAULT_SECTOR_SIZE * DUMP_BLOCK_SIZE);
+    ksceSha256BlockUpdate(&ctx, dump_buffer, SD_DEFAULT_SECTOR_SIZE * DUMP_BLOCK_SIZE);
   }
 
   //dump sectors - tail
@@ -223,17 +224,17 @@ int dump_img(SceUID dev_fd, SceUID out_fd, const MBR* dump_mbr)
     ksceIoWrite(out_fd, dump_buffer, SD_DEFAULT_SECTOR_SIZE * nTail);
 
     //update sha256
-    sceSha256BlockUpdateForDriver(&ctx, dump_buffer, SD_DEFAULT_SECTOR_SIZE * nTail);
+    ksceSha256BlockUpdate(&ctx, dump_buffer, SD_DEFAULT_SECTOR_SIZE * nTail);
   }
 
   //get sha256 digest
   char sha256_digest[0x20];
   memset(sha256_digest, 0, 0x20);
-  sceSha256BlockResultForDriver(&ctx, sha256_digest);
+  ksceSha256BlockResult(&ctx, sha256_digest);
 
   //rewrite header
   dump_header(dev_fd, out_fd, dump_mbr, sha256_digest);
-  
+
   //report number of sectors that are dumped
   set_progress_sectors(dump_mbr->sizeInBlocks);
 
@@ -305,7 +306,7 @@ int dump_thread_internal(SceSize args, void* argp)
     #endif
 
     ksceIoClose(dev_fd);
-    return -1; 
+    return -1;
   }
 
   #ifdef ENABLE_DEBUG_LOG
@@ -339,7 +340,7 @@ int dump_thread(SceSize args, void* argp)
   #endif
 
   return 0;
-} 
+}
 
 dump_args da_inst;
 char da_inst_dump_path[256] = {0};
@@ -347,7 +348,7 @@ char da_inst_dump_path[256] = {0};
 int initialize_dump_thread(const char* dump_path)
 {
   g_dumpThreadId = ksceKernelCreateThread("DumpThread", &dump_thread, 0x64, 0x10000, 0, 0, 0);
-  
+
   if(g_dumpThreadId >= 0)
   {
     #ifdef ENABLE_DEBUG_LOG
@@ -356,7 +357,7 @@ int initialize_dump_thread(const char* dump_path)
 
     #ifdef ENABLE_DEBUG_LOG
     snprintf(sprintfBuffer, 256, "path %s\n", dump_path);
-    FILE_GLOBAL_WRITE_LEN(sprintfBuffer);     
+    FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
     #endif
 
     //copying the path to yet another variable to be able to clear g_dump_path that is used for requests
@@ -382,12 +383,12 @@ int deinitialize_dump_thread()
   //wait till thread finishes and do a cleanup
 
   if(g_dumpThreadId >= 0)
-  {  
+  {
     int waitRet = 0;
     ksceKernelWaitThreadEnd(g_dumpThreadId, &waitRet, 0);
-    
+
     int delret = ksceKernelDeleteThread(g_dumpThreadId);
-    g_dumpThreadId = -1; 
+    g_dumpThreadId = -1;
   }
 
   return 0;
@@ -454,7 +455,7 @@ int dump_poll_thread(SceSize args, void* argp)
   #ifdef ENABLE_DEBUG_LOG
   FILE_GLOBAL_WRITE_LEN("Started Dump Poll Thread\n");
   #endif
-  
+
   while(1)
   {
     //lock mutex
@@ -468,11 +469,11 @@ int dump_poll_thread(SceSize args, void* argp)
     #endif
 
     //wait for request
-    res = sceKernelWaitCondForDriver(dump_req_cond, 0);
+    res = ksceKernelWaitCond(dump_req_cond, 0);
     #ifdef ENABLE_DEBUG_LOG
     if(res < 0)
     {
-      snprintf(sprintfBuffer, 256, "failed to sceKernelWaitCondForDriver dump_req_cond : %x\n", res);
+      snprintf(sprintfBuffer, 256, "failed to ksceKernelWaitCond dump_req_cond : %x\n", res);
       FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
     }
     #endif
@@ -490,7 +491,7 @@ int dump_poll_thread(SceSize args, void* argp)
     handle_dump_request(g_dump_state, g_dump_path);
 
     //return response
-    sceKernelSignalCondForDriver(dump_resp_cond);
+    ksceKernelSignalCond(dump_resp_cond);
   }
 
   return 0;
@@ -557,7 +558,7 @@ int initialize_dump_threading()
     FILE_GLOBAL_WRITE_LEN("Created dump_req_lock\n");
   #endif
 
-  dump_req_cond = sceKernelCreateCondForDriver("dump_req_cond", 0, dump_req_lock, 0);
+  dump_req_cond = ksceKernelCreateCond("dump_req_cond", 0, dump_req_lock, 0);
   #ifdef ENABLE_DEBUG_LOG
   if(dump_req_cond >= 0)
     FILE_GLOBAL_WRITE_LEN("Created dump_req_cond\n");
@@ -569,7 +570,7 @@ int initialize_dump_threading()
     FILE_GLOBAL_WRITE_LEN("Created dump_resp_lock\n");
   #endif
 
-  dump_resp_cond = sceKernelCreateCondForDriver("dump_resp_cond", 0, dump_resp_lock, 0);
+  dump_resp_cond = ksceKernelCreateCond("dump_resp_cond", 0, dump_resp_lock, 0);
   #ifdef ENABLE_DEBUG_LOG
   if(dump_resp_cond >= 0)
     FILE_GLOBAL_WRITE_LEN("Created dump_resp_cond\n");
@@ -606,20 +607,20 @@ int deinitialize_dump_threading()
   {
     int waitRet = 0;
     ksceKernelWaitThreadEnd(g_dumpPollThreadId, &waitRet, 0);
-    
+
     int delret = ksceKernelDeleteThread(g_dumpPollThreadId);
     g_dumpPollThreadId = -1;
   }
 
   if(dump_req_cond >= 0)
   {
-    sceKernelDeleteCondForDriver(dump_req_cond);
+    ksceKernelDeleteCond(dump_req_cond);
     dump_req_cond = -1;
   }
 
   if(dump_resp_cond >= 0)
   {
-    sceKernelDeleteCondForDriver(dump_resp_cond);
+    ksceKernelDeleteCond(dump_resp_cond);
     dump_resp_cond = -1;
   }
 
@@ -661,7 +662,7 @@ int deinitialize_dump_threading()
 int dump_request_response_base()
 {
   //send request
-  sceKernelSignalCondForDriver(dump_req_cond);
+  ksceKernelSignalCond(dump_req_cond);
 
   //lock mutex
   int res = ksceKernelLockMutex(dump_resp_lock, 1, 0);
@@ -674,11 +675,11 @@ int dump_request_response_base()
   #endif
 
   //wait for response
-  res = sceKernelWaitCondForDriver(dump_resp_cond, 0);
+  res = ksceKernelWaitCond(dump_resp_cond, 0);
   #ifdef ENABLE_DEBUG_LOG
   if(res < 0)
   {
-    snprintf(sprintfBuffer, 256, "failed to sceKernelWaitCondForDriver dump_resp_cond : %x\n", res);
+    snprintf(sprintfBuffer, 256, "failed to ksceKernelWaitCond dump_resp_cond : %x\n", res);
     FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
   }
   #endif
@@ -711,7 +712,7 @@ int dump_mmc_card_stop_internal()
 {
   g_dump_state = DUMP_STATE_STOP;
   memset(g_dump_path, 0, 256);
-  
+
   dump_request_response_base();
 
   return 0;

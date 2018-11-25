@@ -16,11 +16,11 @@
 #include <stdint.h>
 
 #include <taihen.h>
-#include <module.h>
 
+#include "functions.h"
 #include "reader.h"
 
-//this function sets all sensitive data in GcAuthMgr 
+//this function sets all sensitive data in GcAuthMgr
 int set_5018_data(const char* data_5018_buffer)
 {
   tai_module_info_t gc_info;

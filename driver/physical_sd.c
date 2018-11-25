@@ -20,11 +20,10 @@
 #include "defines.h"
 
 #include <taihen.h>
-#include <module.h>
 
 #include <string.h>
 
-// ======= img header and mbr init for physical mode ======= 
+// ======= img header and mbr init for physical mode =======
 
 char g_img_header_sd_raw_data[SD_DEFAULT_SECTOR_SIZE] = {0};
 psv_file_header_v1* g_img_header_sd = 0;
@@ -37,7 +36,7 @@ int initialize_img_header()
   if(g_img_header_sd > 0)
     return 0;
 
-  sd_context_part_sd* sd_ctx = ksceSdifGetSdContextPartSd(SCE_SDIF_DEV_GAME_CARD);
+  sd_context_part_sd* sd_ctx = ksceSdifGetSdContextPartValidateSd(SCE_SDIF_DEV_GAME_CARD);
   if(sd_ctx <= 0)
   {
     #ifdef ENABLE_DEBUG_LOG
@@ -48,7 +47,7 @@ int initialize_img_header()
   }
 
   //when image header is not initialized - data will be read from real 0 sector
-  int res = ksceSdifReadSector(sd_ctx, 0, g_img_header_sd_raw_data, 1);
+  int res = ksceSdifReadSectorSd(sd_ctx, 0, g_img_header_sd_raw_data, 1);
   if(res < 0)
   {
     #ifdef ENABLE_DEBUG_LOG
@@ -90,7 +89,7 @@ int initialize_mbr_header()
   if(g_mbr_sd > 0)
     return 0;
 
-  sd_context_part_sd* sd_ctx = ksceSdifGetSdContextPartSd(SCE_SDIF_DEV_GAME_CARD);
+  sd_context_part_sd* sd_ctx = ksceSdifGetSdContextPartValidateSd(SCE_SDIF_DEV_GAME_CARD);
   if(sd_ctx <= 0)
   {
     #ifdef ENABLE_DEBUG_LOG
@@ -101,7 +100,7 @@ int initialize_mbr_header()
   }
 
   //when image header is initialized data will be read from g_img_header_sd->image_offset_sector
-  int res = ksceSdifReadSector(sd_ctx, 0, g_mbr_sd_raw_data, 1);
+  int res = ksceSdifReadSectorSd(sd_ctx, 0, g_mbr_sd_raw_data, 1);
   if(res < 0)
   {
     #ifdef ENABLE_DEBUG_LOG
@@ -144,7 +143,7 @@ int sd_read_hook_through(void* ctx_part, int sector, char* buffer, int nSectors)
           return 0;
       }
     }
-  
+
     //this code may cause deadlocks so moved under comment
     /*
     #ifdef ENABLE_DEBUG_LOG
@@ -152,7 +151,7 @@ int sd_read_hook_through(void* ctx_part, int sector, char* buffer, int nSectors)
     FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
     #endif
     */
-    
+
     //can add debug code here
     int res = TAI_CONTINUE(int, sd_read_hook_ref, ctx_part, sector, buffer, nSectors);
 
@@ -294,17 +293,17 @@ int init_sd_hook_physical(int sd_ctx_index, void** ctx_part)
     int res = TAI_CONTINUE(int, init_sd_hook_ref, sd_ctx_index, ctx_part);
     return res;
   }
-} 
+}
 
 int initialize_hooks_physical_sd()
 {
   tai_module_info_t sdstor_info;
   sdstor_info.size = sizeof(tai_module_info_t);
-  if (taiGetModuleInfoForKernel(KERNEL_PID, "SceSdstor", &sdstor_info) >= 0) 
+  if (taiGetModuleInfoForKernel(KERNEL_PID, "SceSdstor", &sdstor_info) >= 0)
   {
     //read hook can be used for some debugging
     sd_read_hook_id = taiHookFunctionImportForKernel(KERNEL_PID, &sd_read_hook_ref, "SceSdstor", SceSdifForDriver_NID, 0xb9593652, sd_read_hook_through);
-    
+
     #ifdef ENABLE_DEBUG_LOG
     if(sd_read_hook_id < 0)
       FILE_GLOBAL_WRITE_LEN("Failed to init sd_read_hook\n");
@@ -314,14 +313,14 @@ int initialize_hooks_physical_sd()
 
     //write hook to emulate media-id partition
     sd_write_hook_id = taiHookFunctionImportForKernel(KERNEL_PID, &sd_write_hook_ref, "SceSdstor", SceSdifForDriver_NID, 0xe0781171, sd_write_hook_physical);
-    
+
     #ifdef ENABLE_DEBUG_LOG
     if(sd_write_hook_id < 0)
       FILE_GLOBAL_WRITE_LEN("Failed to init sd_write_hook\n");
     else
       FILE_GLOBAL_WRITE_LEN("Init sd_write_hook\n");
     #endif
-    
+
     //patch for proc_initialize_generic_X - so that sd card type is not ignored
     char zeroCallOnePatch[4] = {0x01, 0x20, 0x00, 0xBF};
 
@@ -347,7 +346,7 @@ int initialize_hooks_physical_sd()
 
     //this patch enables initialization on resume
     gen_init_3_patch_uid = taiInjectDataForKernel(KERNEL_PID, sdstor_info.modid, 0, 0x2940, zeroCallOnePatch, 4); //patch (BLX) to (MOVS R0, #1 ; NOP)
-    
+
     #ifdef ENABLE_DEBUG_LOG
     if(gen_init_3_patch_uid < 0)
       FILE_GLOBAL_WRITE_LEN("Failed to init gen_init_3_patch\n");
@@ -384,7 +383,7 @@ int initialize_hooks_physical_sd()
     #endif
 
     #endif
-    
+
     //this hooks sd init function (there is separate function for mmc init)
     //this hook is used to set cmd56 handshake data
     init_sd_hook_id = taiHookFunctionExportForKernel(KERNEL_PID, &init_sd_hook_ref, "SceSdif", SceSdifForDriver_NID, 0xc1271539, init_sd_hook_physical);
@@ -418,7 +417,7 @@ int deinitialize_hooks_physical_sd()
   if(sd_read_hook_id >= 0)
   {
     int res = taiHookReleaseForKernel(sd_read_hook_id, sd_read_hook_ref);
-    
+
     #ifdef ENABLE_DEBUG_LOG
     if(res < 0)
       FILE_GLOBAL_WRITE_LEN("Failed to deinit sd_read_hook\n");
@@ -432,7 +431,7 @@ int deinitialize_hooks_physical_sd()
   if(sd_write_hook_id >= 0)
   {
     int res = taiHookReleaseForKernel(sd_write_hook_id, sd_write_hook_ref);
-    
+
     #ifdef ENABLE_DEBUG_LOG
     if(res < 0)
       FILE_GLOBAL_WRITE_LEN("Failed to deinit sd_write_hook\n");
@@ -456,7 +455,7 @@ int deinitialize_hooks_physical_sd()
 
     gen_init_1_patch_uid = -1;
   }
-  
+
   if(gen_init_2_patch_uid >= 0)
   {
     int res = taiInjectReleaseForKernel(gen_init_2_patch_uid);

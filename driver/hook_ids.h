@@ -1,12 +1,10 @@
 #pragma once
 
 #include <taihen.h>
-#include <module.h>
 
 #define SceSdifForDriver_NID 0x96D306FA
 #define SceIofilemgrForDriver_NID 0x40FD29C7
 #define SceSblGcAuthMgrGcAuthForDriver_NID 0xC6627F5E
-#define SceThreadmgrForDriver_NID 0xE2C40624
 #define SceKernelUtilsForDriver_NID 0x496AD8B4
 #define SceSblGcAuthMgrDrmBBForDriver_NID 0x1926B182
 

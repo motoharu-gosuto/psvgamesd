@@ -81,12 +81,12 @@ void get_mmc_csd(MMC_CSD* csd)
    csd->TRAN_SPEED = MMC_CSD_TRAN_SPEED_FU_SET(csd->TRAN_SPEED, MMC_CSD_TRAN_SPEED_FU_10MHZ);
    csd->TRAN_SPEED = MMC_CSD_TRAN_SPEED_MF_SET(csd->TRAN_SPEED, MMC_CSD_TRAN_SPEED_MF_2_6);
 
-   csd->w4.CCC = MMC_CSD_CCC_SET(csd->w4.CCC, MMC_CSD_CCC_CLASS_0 | 
-                                              MMC_CSD_CCC_CLASS_2 | 
-                                              MMC_CSD_CCC_CLASS_4 | 
-                                              MMC_CSD_CCC_CLASS_5 | 
-                                              MMC_CSD_CCC_CLASS_6 | 
-                                              MMC_CSD_CCC_CLASS_7 | 
+   csd->w4.CCC = MMC_CSD_CCC_SET(csd->w4.CCC, MMC_CSD_CCC_CLASS_0 |
+                                              MMC_CSD_CCC_CLASS_2 |
+                                              MMC_CSD_CCC_CLASS_4 |
+                                              MMC_CSD_CCC_CLASS_5 |
+                                              MMC_CSD_CCC_CLASS_6 |
+                                              MMC_CSD_CCC_CLASS_7 |
                                               MMC_CSD_CCC_CLASS_8);
 
    csd->w4.READ_BL_LEN =  MMC_CSD_READ_BL_LEN_SET(csd->w4.READ_BL_LEN, MMC_CSD_READ_BL_LEN_512B);
@@ -175,7 +175,7 @@ int emulate_mmc_command(sd_context_global* ctx, cmd_input* cmd_data1, cmd_input*
             cmd_data1->error_code = 0;
             cmd_data1->unk_64 = 3;
             cmd_data1->wide_time1 = ksceKernelGetSystemTimeWide();
-            
+
             g_mmc_card_state = IDLE_MMC_STATE;
             g_mmc_ready_for_data = 0;
             return cmd_data1->error_code;
@@ -401,9 +401,9 @@ int emulate_mmc_command(sd_context_global* ctx, cmd_input* cmd_data1, cmd_input*
                 g_buffer = cmd_data1->buffer;
                 g_nSectors = 1;
 
-                sceKernelSignalCondForDriver(req_cond); //send request
+                ksceKernelSignalCond(req_cond); //send request
                 ksceKernelLockMutex(resp_lock, 1, 0); //lock mutex
-                sceKernelWaitCondForDriver(resp_cond, 0); //wait for response
+                ksceKernelWaitCond(resp_cond, 0); //wait for response
                 ksceKernelUnlockMutex(resp_lock, 1); //unlock mutex
             }
 
@@ -447,9 +447,9 @@ int emulate_mmc_command(sd_context_global* ctx, cmd_input* cmd_data1, cmd_input*
                         g_buffer = cmd_data2->buffer;
                         g_nSectors = cmd_data1->argument;
 
-                        sceKernelSignalCondForDriver(req_cond); //send request
+                        ksceKernelSignalCond(req_cond); //send request
                         ksceKernelLockMutex(resp_lock, 1, 0); //lock mutex
-                        sceKernelWaitCondForDriver(resp_cond, 0); //wait for response
+                        ksceKernelWaitCond(resp_cond, 0); //wait for response
                         ksceKernelUnlockMutex(resp_lock, 1); //unlock mutex
                     }
 
@@ -501,4 +501,4 @@ int emulate_mmc_command(sd_context_global* ctx, cmd_input* cmd_data1, cmd_input*
             return 0x80320002;
         }
     }
-} 
+}

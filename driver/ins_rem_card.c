@@ -11,7 +11,6 @@
 #include <psp2kern/kernel/threadmgr.h>
 
 #include <taihen.h>
-#include <module.h>
 
 #include "hook_ids.h"
 #include "functions.h"
