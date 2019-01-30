@@ -10,6 +10,7 @@
 
 #include <taihen.h>
 
+#include <stdio.h>
 #include <string.h>
 
 #include "reader.h"

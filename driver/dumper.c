@@ -363,6 +363,7 @@ int initialize_dump_thread(const char* dump_path)
     //copying the path to yet another variable to be able to clear g_dump_path that is used for requests
     memset(da_inst_dump_path, 0, 256);
     strncpy(da_inst_dump_path, dump_path, 256);
+    da_inst_dump_path[255] = 0;
     da_inst.dump_path = da_inst_dump_path;
 
     int res = ksceKernelStartThread(g_dumpThreadId, sizeof(dump_args), &da_inst);
@@ -702,6 +703,7 @@ int dump_mmc_card_start_internal(const char* dump_path)
   g_dump_state = DUMP_STATE_START;
   memset(g_dump_path, 0, 256);
   strncpy(g_dump_path, dump_path, 256);
+  g_dump_path[255] = 0;
 
   dump_request_response_base();
 

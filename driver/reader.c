@@ -172,6 +172,7 @@ char iso_path[256] = {0};
 int set_reader_iso_path(const char* path)
 {
   strncpy(iso_path, path, 256);
+  iso_path[255] = 0;
 
   get_img_header(iso_path);
 

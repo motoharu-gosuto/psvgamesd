@@ -16,6 +16,8 @@
 
 #include <taihen.h>
 
+#include <stdio.h>
+
 int mmc_read_hook_through(void* ctx_part, int	sector,	char* buffer, int nSectors)
 {
   //make sure that only mmc operations are redirected

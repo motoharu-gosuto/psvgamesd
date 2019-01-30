@@ -10,6 +10,7 @@
 
 #include <psp2kern/kernel/threadmgr.h>
 
+#include <stdio.h>
 #include <string.h>
 
 #include <taihen.h>

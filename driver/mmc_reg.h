@@ -633,7 +633,7 @@ typedef struct EXT_CSD_MMCA_4_4
    uint8_t CMD_SET_REV; //[189]
    uint8_t Reserved_14[1]; //[190]
    uint8_t CMD_SET; //[191]
-   
+
    //Properties segment
 
    uint8_t EXT_CSD_REV; //[192]

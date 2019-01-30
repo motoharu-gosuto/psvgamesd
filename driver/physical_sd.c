@@ -21,6 +21,7 @@
 
 #include <taihen.h>
 
+#include <stdio.h>
 #include <string.h>
 
 // ======= img header and mbr init for physical mode =======

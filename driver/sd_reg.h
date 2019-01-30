@@ -928,7 +928,7 @@ typedef struct SD_SCR_V5_00
 
 #define SD_SCR_V5_00_DATA_STAT_AFTER_ERASE_MASK 0x80
 #define SD_SCR_V5_00_DATA_STAT_AFTER_ERASE_GET(b1) (((b1) & SD_SCR_V5_00_DATA_STAT_AFTER_ERASE_MASK) >> 7)
-#define SD_SCR_V5_00_DATA_STAT_AFTER_ERASE_SET(b1, value) ((b1) | (((value) & 0x01) << 7)) 
+#define SD_SCR_V5_00_DATA_STAT_AFTER_ERASE_SET(b1, value) ((b1) | (((value) & 0x01) << 7))
 
 //
 
@@ -1069,7 +1069,7 @@ typedef struct SSR
 #define SSR_DAT_BUS_WIDTH_MASK 0xC000
 #define SSR_DAT_BUS_WIDTH_GET_INTERNAL(w0) (((w0) & SSR_DAT_BUS_WIDTH_MASK) >> 14)
 #define SSR_DAT_BUS_WIDTH_GET(w0) (SSR_DAT_BUS_WIDTH_GET_INTERNAL(INV_16(w0)))
-#define SSR_DAT_BUS_WIDTH_SET(w0, value) ((w0) | (INV_16(((value) & 0x03) << 14))) 
+#define SSR_DAT_BUS_WIDTH_SET(w0, value) ((w0) | (INV_16(((value) & 0x03) << 14)))
 
 #define SSR_DAT_BUS_WIDTH_1BIT 0
 #define SSR_DAT_BUS_WIDTH_4BIT 2
@@ -1079,7 +1079,7 @@ typedef struct SSR
 #define SSR_SECURED_MODE_MASK 0x2000
 #define SSR_SECURED_MODE_GET_INTERNAL(w0) ((w0) & SSR_SECURED_MODE_MASK)
 #define SSR_SECURED_MODE_GET(w0) (SSR_SECURED_MODE_GET_INTERNAL(INV_16(w0)))
-#define SSR_SECURED_MODE_SET(w0) ((w0) | (INV_16(SSR_SECURED_MODE_MASK))) 
+#define SSR_SECURED_MODE_SET(w0) ((w0) | (INV_16(SSR_SECURED_MODE_MASK)))
 
 // --
 
@@ -1277,7 +1277,7 @@ typedef struct SW_STATUS_V0
    }b15;
 
    union SW_STATUS_V0_b16
-   { 
+   {
       uint8_t FUN_SEL_FUN_GR_2; // [383:380]
       uint8_t FUN_SEL_FUN_GR_1; // [379:376]
    }b16;
@@ -1311,7 +1311,7 @@ typedef struct SW_STATUS_V1
    }b15;
 
    union SW_STATUS_V1_b16
-   { 
+   {
       uint8_t FUN_SEL_FUN_GR_2; // [383:380]
       uint8_t FUN_SEL_FUN_GR_1; // [379:376]
    }b16;
