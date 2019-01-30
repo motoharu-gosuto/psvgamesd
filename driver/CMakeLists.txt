@@ -29,6 +29,7 @@ add_definitions(-DNO_PTHREADS)
 add_executable(psvgamesd
   cmd56_key.c
   dumper.c
+  functions.c
   global_log.c
   hook_ids.c
   mmc_emu.c
@@ -55,7 +56,6 @@ target_link_libraries(psvgamesd
   SceSdifForDriver_stub
   SceMsifForDriver_stub
   SceThreadmgrForDriver_stub
-  SceModulemgrForKernel_stub
   SceKernelSuspendForDriver_stub
   SceKernelUtilsForDriver_stub
   taihenForKernel_stub

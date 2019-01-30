@@ -8,6 +8,13 @@
 #define SceKernelUtilsForDriver_NID 0x496AD8B4
 #define SceSblGcAuthMgrDrmBBForDriver_NID 0x1926B182
 
+// 3.60-3.61
+#define SceModulemgrForKernel_360_NID 0xC445FA63
+#define SceSblGcAuthMgr_360_BUF_OFFSET 0x5018
+// 3.63-3.70
+#define SceModulemgrForKernel_363_NID 0x92C9FFC2
+#define SceSblGcAuthMgr_363_BUF_OFFSET 0x4FD8
+
 extern tai_hook_ref_t sd_read_hook_ref;
 extern SceUID sd_read_hook_id;
 

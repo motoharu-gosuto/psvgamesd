@@ -223,7 +223,7 @@ int dump_sdif_data()
   {
     SceKernelModuleInfo minfo;
     minfo.size = sizeof(SceKernelModuleInfo);
-    int ret = ksceKernelGetModuleInfo(KERNEL_PID, sdif_info.modid, &minfo);
+    int ret = sceKernelGetModuleInfoForKernel(KERNEL_PID, sdif_info.modid, &minfo);
     if(ret >= 0)
     {
       FILE_GLOBAL_WRITE_LEN("ready to dump sdif data seg\n");

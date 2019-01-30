@@ -20,6 +20,8 @@
 #include "functions.h"
 #include "reader.h"
 
+size_t data_buffer_offset = 0;
+
 //this function sets all sensitive data in GcAuthMgr
 int set_5018_data(const char* data_5018_buffer)
 {
@@ -28,7 +30,7 @@ int set_5018_data(const char* data_5018_buffer)
   if (taiGetModuleInfoForKernel(KERNEL_PID, "SceSblGcAuthMgr", &gc_info) >= 0)
   {
     uintptr_t addr = 0;
-    int ofstRes = module_get_offset(KERNEL_PID, gc_info.modid, 1, 0x5018, &addr);
+    int ofstRes = module_get_offset(KERNEL_PID, gc_info.modid, 1, data_buffer_offset, &addr);
     if(ofstRes == 0)
     {
       memcpy((char*)addr, data_5018_buffer, CMD56_DATA_SIZE);
@@ -46,7 +48,7 @@ int get_5018_data(char* data_5018_buffer)
   if (taiGetModuleInfoForKernel(KERNEL_PID, "SceSblGcAuthMgr", &gc_info) >= 0)
   {
     uintptr_t addr = 0;
-    int ofstRes = module_get_offset(KERNEL_PID, gc_info.modid, 1, 0x5018, &addr);
+    int ofstRes = module_get_offset(KERNEL_PID, gc_info.modid, 1, data_buffer_offset, &addr);
     if(ofstRes == 0)
     {
       memcpy(data_5018_buffer, (char*)addr, CMD56_DATA_SIZE);

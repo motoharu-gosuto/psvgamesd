@@ -1,11 +1,17 @@
 #pragma once
 
 #include <psp2kern/types.h>
+#include <psp2kern/kernel/modulemgr.h>
 #include <psp2kern/kernel/threadmgr.h>
 
 #include <taihen.h>
 
 #include "sector_api.h"
+
+typedef int (sceKernelGetModuleInfoForKernel_t)(SceUID pid, SceUID modid, SceKernelModuleInfo *info);
+extern sceKernelGetModuleInfoForKernel_t* sceKernelGetModuleInfoForKernel;
+
+int initialize_functions();
 
 #define SCE_KERNEL_SYS_EVENT_SUSPEND 0
 #define SCE_KERNEL_SYS_EVENT_RESUME 1

@@ -23,7 +23,10 @@ int module_start(SceSize argc, const void *args)
   FILE_GLOBAL_WRITE_LEN("Startup iso driver\n");
   #endif
 
-  initialize_read_threading();
+  if(initialize_functions() >= 0)
+  {
+    initialize_read_threading();
+  }
 
   initialize_dump_threading();
 
