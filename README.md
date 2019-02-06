@@ -174,3 +174,4 @@ Data from the handshake is required to pass signature checks and obtain klicense
 - Thanks to Team molecule for HENkaku and thanks to Yifan Lu for taiHEN.
 - Thanks to Proxima for explaining klicensee theory.
 - Thanks to SonyUSA for helping with initial testing.
+- Thanks to al3xtjames for adding 3.63+ support.
