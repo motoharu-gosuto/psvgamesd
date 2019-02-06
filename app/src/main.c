@@ -60,7 +60,7 @@
 
 int lock_ps_btn = 0;
 
-void ps_btn_lock() 
+void ps_btn_lock()
 {
    if (lock_ps_btn == 0)
    {
@@ -69,7 +69,7 @@ void ps_btn_lock()
    }
 }
 
-void ps_btn_unlock() 
+void ps_btn_unlock()
 {
    if (lock_ps_btn == 1)
    {
@@ -100,7 +100,7 @@ int get_dir_max_file_pos(const char* path)
       {
         if(SCE_S_ISREG(dir.d_stat.st_mode))
         {
-          max_file_position++;          
+          max_file_position++;
         }
       }
     }
@@ -108,7 +108,7 @@ int get_dir_max_file_pos(const char* path)
 
     sceIoDclose(dirId);
   }
-  
+
   if(max_file_position > 0)
     max_file_position = max_file_position - 1;
 
@@ -144,7 +144,7 @@ int get_dir_filename_at_pos(char* path, uint32_t pos, char* dest)
             break;
           }
 
-          cur_file_position++;          
+          cur_file_position++;
         }
       }
     }
@@ -723,7 +723,7 @@ int get_current_content_id_internal(char* content_id)
     return -1;
 
   sceIoClose(fd);
-  
+
   //parse file
   if(init_sfo_structures(sfo_path) < 0)
     return -1;
@@ -732,7 +732,7 @@ int get_current_content_id_internal(char* content_id)
     return -1;
 
   if(strnlen(content_id, SFO_MAX_STR_VALUE_LEN) == 0)
-    return -1;  
+    return -1;
 
   return 0;
 }
@@ -757,13 +757,13 @@ int SCE_CTRL_RIGHT_callback()
        !(prev_driver_mode == DRIVER_MODE_PHYSICAL_SD && phys_ins_state > 0))
     {
       sceKernelLockMutex(g_driver_mode_mutex_id, 1, 0);
-      
+
       //check overflow condition
       if(g_driver_mode == DRIVER_MODE_VIRTUAL_SD)
         g_driver_mode = DRIVER_MODE_PHYSICAL_MMC;
       else
         g_driver_mode++;
-  
+
       //remove card and deselect iso if previous mode was virtual and card was inserted
       if((prev_driver_mode == DRIVER_MODE_VIRTUAL_MMC) || (prev_driver_mode == DRIVER_MODE_VIRTUAL_SD))
       {
@@ -779,19 +779,19 @@ int SCE_CTRL_RIGHT_callback()
           //wait 2 seconds for removal
           sceKernelDelayThread(INSERTION_DELAY);
         }
-  
+
         //clear iso variable
         clear_selected_iso();
 
         //deselect iso in kernel
         clear_iso_path();
       }
-  
+
       sceKernelUnlockMutex(g_driver_mode_mutex_id, 1);
-  
+
       //change driver mode only after removing the card and deselecting iso
       select_driver_mode(prev_driver_mode, get_driver_mode());
-  
+
       set_redraw_request(1);
     }
   }
@@ -811,7 +811,7 @@ int SCE_CTRL_LEFT_callback()
     uint32_t prev_driver_mode = get_driver_mode();
 
     int phys_ins_state = get_physical_ins_state();
-    
+
     //forbid swithing states when there is a game card physically inserted
     //this should help to avoid potential conflicts when forgetting to remove physical card
     //and trying to insert virtual card
@@ -819,13 +819,13 @@ int SCE_CTRL_LEFT_callback()
        !(prev_driver_mode == DRIVER_MODE_PHYSICAL_SD && phys_ins_state > 0))
     {
       sceKernelLockMutex(g_driver_mode_mutex_id, 1, 0);
-      
+
       //check underflow condition
       if(g_driver_mode == DRIVER_MODE_PHYSICAL_MMC)
         g_driver_mode = DRIVER_MODE_VIRTUAL_SD;
       else
         g_driver_mode--;
-  
+
       //remove card and deselect iso if previous mode was virtual and card was inserted
       if((prev_driver_mode == DRIVER_MODE_VIRTUAL_MMC) || (prev_driver_mode == DRIVER_MODE_VIRTUAL_SD))
       {
@@ -841,21 +841,21 @@ int SCE_CTRL_LEFT_callback()
           //wait 2 seconds for removal
           sceKernelDelayThread(INSERTION_DELAY);
         }
-  
+
         //clear iso variable
         clear_selected_iso();
 
         //deselect iso in kernel
         clear_iso_path();
       }
-  
+
       sceKernelUnlockMutex(g_driver_mode_mutex_id, 1);
-  
+
       //change driver mode only after removing the card and deselecting iso
       select_driver_mode(prev_driver_mode, get_driver_mode());
-  
+
       set_redraw_request(1);
-    }    
+    }
   }
 
   return 0;
@@ -927,7 +927,7 @@ int SCE_CTRL_CIRCLE_callback()
 
         //set new iso
         set_selected_iso(filepath);
-        
+
         //check if selection has changed
         if(strncmp(prev_iso, filepath, 256) != 0)
         {
@@ -948,7 +948,7 @@ int SCE_CTRL_CIRCLE_callback()
           char full_path[256];
           memset(full_path, 0, 256);
           strncpy(full_path, g_current_directory, 256);
-          strncat(full_path, "/", 256);
+          strncat(full_path, "/", 255);
           strncat(full_path, filepath, 256);
 
           //set iso path var
@@ -977,7 +977,7 @@ int dump_status_poll_thread_internal(SceSize args, void* argp)
     sceKernelDelayThread(DUMP_STATUS_POLL_DELAY);
 
     //get stats from kernel
-    uint32_t total_sectors = dump_mmc_get_total_sectors(); 
+    uint32_t total_sectors = dump_mmc_get_total_sectors();
     uint32_t progress_sectors = dump_mmc_get_progress_sectors();
 
     //set to local vars
@@ -989,10 +989,10 @@ int dump_status_poll_thread_internal(SceSize args, void* argp)
       //redraw screen
       set_redraw_request(1);
     }
-    
+
     prev_total_sectors = total_sectors;
     prev_progress_sectors = progress_sectors;
-    
+
     //check if cancel was requested
     uint32_t rn_state = get_dump_state_poll_running_state();
     if(rn_state == DUMP_STATE_POLL_STOP)
@@ -1034,7 +1034,7 @@ SceUID g_dump_status_poll_thread_id = -1;
 int initialize_dump_status_poll_threading()
 {
   g_dump_status_poll_thread_id = sceKernelCreateThread("dump_status_poll", dump_status_poll_thread, 0x40, 0x1000, 0, 0, 0);
-  
+
   if(g_dump_status_poll_thread_id >= 0)
     sceKernelStartThread(g_dump_status_poll_thread_id, 0, 0);
 
@@ -1047,7 +1047,7 @@ int deinitialize_dump_status_poll_threading()
   {
     int waitRet = 0;
     sceKernelWaitThreadEnd(g_dump_status_poll_thread_id, &waitRet, 0);
-  
+
     sceKernelDeleteThread(g_dump_status_poll_thread_id);
     g_dump_status_poll_thread_id = -1;
   }
@@ -1061,12 +1061,12 @@ int check_insert_update_content_id(int prev_ins_state)
 {
   int ins_state = 0;
 
-  //this should only apply in mmc physical mode because 
+  //this should only apply in mmc physical mode because
   //it is meaningless to dump in physical sd state
   //and it should be forbidden in virtual modes
 
   uint32_t d_mode = get_driver_mode();
-  
+
   if(d_mode == DRIVER_MODE_PHYSICAL_MMC)
   {
     //get state from driver
@@ -1085,7 +1085,7 @@ int check_insert_update_content_id(int prev_ins_state)
         //however it will take time to initialize the card, do handshake and mount the file system
         //since we will be reading content id from the card - we need to wait at least some time
         //before trying to read. we should also retry on fail
-        
+
         int nRetries = 0;
         while(nRetries < 5)
         {
@@ -1112,7 +1112,7 @@ int check_insert_update_content_id(int prev_ins_state)
       {
         //clear current id
         clear_content_id();
-        
+
         //redraw screen
         set_redraw_request(1);
       }
@@ -1157,7 +1157,7 @@ int deinitialize_insert_status_poll_threading()
   {
     int waitRet = 0;
     sceKernelWaitThreadEnd(g_insert_status_poll_thread_id, &waitRet, 0);
-  
+
     sceKernelDeleteThread(g_insert_status_poll_thread_id);
     g_insert_status_poll_thread_id = -1;
   }
@@ -1191,10 +1191,10 @@ int SCE_CTRL_CROSS_callback()
         //start dumping the card - this will start new thread in kernel
         char full_path[256];
         strncpy(full_path, g_current_directory, 256);
-        strncat(full_path, "/", 256);
+        strncat(full_path, "/", 255);
         strncat(full_path, cnt_id, 256);
-        strncat(full_path, ".psv", 256);
-        
+        strncat(full_path, ".psv", 255);
+
         //start dump process in kernel
         dump_mmc_card_start(full_path);
 
@@ -1203,10 +1203,10 @@ int SCE_CTRL_CROSS_callback()
 
         //start polling only after redraw request
         //since thread will be requesting redraw as well
-        
+
         //if previous dump status poll operation was not canceled - status poll thread will not be deinitialized
         deinitialize_dump_status_poll_threading();
-      
+
         //initialize new thread
         initialize_dump_status_poll_threading();
       }
@@ -1226,7 +1226,7 @@ int SCE_CTRL_SQUARE_callback()
   if(rn_state != DUMP_STATE_POLL_STOP)
   {
     uint32_t d_mode = get_driver_mode();
-    
+
     // dumping is only allowed in physical mmc mode
     if(d_mode == DRIVER_MODE_PHYSICAL_MMC)
     {
@@ -1254,7 +1254,7 @@ int SCE_CTRL_SQUARE_callback()
 int main_ctrl_loop(SceSize args, void* argp)
 {
   sceCtrlSetSamplingMode(SCE_CTRL_MODE_ANALOG);
-	
+
 	while(get_app_running() > 0)
   {
     uint32_t buttons = readInput();
@@ -1440,7 +1440,7 @@ int draw_dir(char* path)
           {
             psvDebugScreenPrintf("\e[9%im %s\n", get_color_from_poll_state(rn_state, 7, 0), dir.d_name);
           }
-          
+
           cur_file_position++;
         }
       }
@@ -1500,7 +1500,7 @@ int initialize_threading()
   g_dump_state_poll_running_state_mutex_id = sceKernelCreateMutex("dump_state_poll_running_state", 0, 0, 0);
 
   g_total_sectors_mutex_id = sceKernelCreateMutex("total_sectors_mutex", 0, 0, 0);
-  
+
   g_progress_sectors_mutex_id = sceKernelCreateMutex("progress_sectors_mutex", 0, 0, 0);
 
   g_physical_ins_state_mutex_id = sceKernelCreateMutex("physical_ins_state_mutex", 0, 0, 0);
@@ -1556,16 +1556,16 @@ int deinitialize_threading()
   {
     int waitRet = 0;
     sceKernelWaitThreadEnd(g_ctrl_thread_id, &waitRet, 0);
-  
+
     sceKernelDeleteThread(g_ctrl_thread_id);
     g_ctrl_thread_id = -1;
   }
-  
+
   return 0;
 }
 
 int set_dir(const char* path)
-{  
+{
   strncpy(g_current_directory, path, 256);
 
   set_max_file_position(get_dir_max_file_pos(path));
@@ -1659,7 +1659,7 @@ int load_state_from_kernel()
   {
     //default state should be set only if we do
     //not have previous state saved in kernel
-    set_default_state(); 
+    set_default_state();
   }
   else
   {
@@ -1670,7 +1670,7 @@ int load_state_from_kernel()
   return 0;
 }
 
-int main(int argc, char *argv[]) 
+int main(int argc, char *argv[])
 {
   psvDebugScreenInit();
 

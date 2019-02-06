@@ -9,8 +9,8 @@
 #include "media_id_emu.h"
 
 #include <taihen.h>
-#include <module.h>
 
+#include <stdio.h>
 #include <string.h>
 
 #include "reader.h"
@@ -58,7 +58,7 @@ const PartitionEntry* call_find_partition_entry(const char* block_dev_name, int 
 
   tai_module_info_t sdstor_info;
   sdstor_info.size = sizeof(tai_module_info_t);
-  if (taiGetModuleInfoForKernel(KERNEL_PID, "SceSdstor", &sdstor_info) >= 0) 
+  if (taiGetModuleInfoForKernel(KERNEL_PID, "SceSdstor", &sdstor_info) >= 0)
   {
     find_partition_entry_t* find_partition_entry = 0;
     int ofstRes = module_get_offset(KERNEL_PID, sdstor_info.modid, 0, 0x142D, (uintptr_t*)&find_partition_entry);

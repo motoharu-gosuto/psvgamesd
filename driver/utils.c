@@ -14,7 +14,6 @@
 #include <psp2kern/io/fcntl.h>
 
 #include <taihen.h>
-#include <module.h>
 
 #include <stdio.h>
 #include <string.h>
@@ -33,7 +32,7 @@ void CMD_BIN_LOG(char* data, int size)
   {
     ksceIoWrite(global_log_fd, data, size);
     ksceIoClose(global_log_fd);
-  }  
+  }
 }
 
 int print_bytes(const char* data, int len)
@@ -51,7 +50,7 @@ int print_bytes(const char* data, int len)
   #endif
 
   return 0;
-} 
+}
 
 int print_cmd(cmd_input* cmd_data, int n,  char* when)
 {
@@ -75,7 +74,7 @@ int print_cmd(cmd_input* cmd_data, int n,  char* when)
 
     snprintf(sprintfBuffer, 256, "error_code: %x\n", cmd_data->error_code);
     FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
-    
+
     snprintf(sprintfBuffer, 256, "unk_64: %x\n", cmd_data->unk_64);
     FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
 
@@ -141,7 +140,7 @@ int print_SceSdif1_lock_info(SceUID mutex)
     memset(&info, 0, sizeof(SceKernelMutexInfo));
     info.size = sizeof(SceKernelMutexInfo);
 
-    int res = sceKernelGetMutexInfoForDriver(mutex, &info);
+    int res = ksceKernelGetMutexInfo(mutex, &info);
 
     #ifdef ENABLE_DEBUG_LOG
     if(res >= 0)
@@ -179,18 +178,18 @@ int dumpSegment(SceKernelModuleInfo* minfo, int index)
 {
   if(minfo->segments <= 0)
     return -1;
-  
-  if (minfo->segments[index].vaddr <= 0) 
+
+  if (minfo->segments[index].vaddr <= 0)
   {
     FILE_GLOBAL_WRITE_LEN("segment is empty\n");
     return -1;
   }
-  
+
   {
     snprintf(sprintfBuffer, 256, "%d %x %x\n", index, minfo->segments[index].vaddr, minfo->segments[index].memsz);
     FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
   }
-  
+
   char filename[100] = {0};
   char moduleNameCopy[30] = {0};
   snprintf(moduleNameCopy, 30, minfo->module_name);
@@ -200,19 +199,19 @@ int dumpSegment(SceKernelModuleInfo* minfo, int index)
     snprintf(sprintfBuffer, 256, "%s\n", filename);
     FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
   }
-  
+
   SceUID fout = ksceIoOpen(filename, SCE_O_CREAT | SCE_O_TRUNC | SCE_O_WRONLY, 0777);
-  
+
   if(fout < 0)
      return -1;
-  
+
   if(minfo->segments[index].memsz > 0)
   {
     ksceIoWrite(fout, minfo->segments[index].vaddr, minfo->segments[index].memsz);
   }
-  
+
   ksceIoClose(fout);
-  
+
   return 0;
 }
 
@@ -224,11 +223,11 @@ int dump_sdif_data()
   {
     SceKernelModuleInfo minfo;
     minfo.size = sizeof(SceKernelModuleInfo);
-    int ret = ksceKernelGetModuleInfo(KERNEL_PID, sdif_info.modid, &minfo);
+    int ret = sceKernelGetModuleInfoForKernel(KERNEL_PID, sdif_info.modid, &minfo);
     if(ret >= 0)
     {
       FILE_GLOBAL_WRITE_LEN("ready to dump sdif data seg\n");
-      
+
       dumpSegment(&minfo, 1);
     }
     else
@@ -236,6 +235,6 @@ int dump_sdif_data()
       FILE_GLOBAL_WRITE_LEN("can not dump sdif data seg\n");
     }
   }
-  
+
   return 0;
-} 
+}

@@ -15,7 +15,8 @@
 #include "defines.h"
 
 #include <taihen.h>
-#include <module.h>
+
+#include <stdio.h>
 
 int mmc_read_hook_through(void* ctx_part, int	sector,	char* buffer, int nSectors)
 {
@@ -26,7 +27,7 @@ int mmc_read_hook_through(void* ctx_part, int	sector,	char* buffer, int nSectors
 
     #ifdef ENABLE_DEBUG_LOG
     // this log will cause deadlock when game is started
-    /* 
+    /*
     snprintf(sprintfBuffer, 256, "enter mmc read sector %x nSectors %x\n", sector, nSectors);
     FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
     */
@@ -70,7 +71,7 @@ int send_command_debug_hook(sd_context_global* ctx, cmd_input* cmd_data1, cmd_in
     snprintf(sprintfBuffer, 256, "exit CMD%d \n", cmd_data1->command);
     FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
     #endif
-    
+
 
     //can add debug code here
 
@@ -106,11 +107,11 @@ int initialize_hooks_physical_mmc()
 {
   tai_module_info_t sdstor_info;
   sdstor_info.size = sizeof(tai_module_info_t);
-  if (taiGetModuleInfoForKernel(KERNEL_PID, "SceSdstor", &sdstor_info) >= 0) 
+  if (taiGetModuleInfoForKernel(KERNEL_PID, "SceSdstor", &sdstor_info) >= 0)
   {
     //read hook can be used for some debugging
     mmc_read_hook_id = taiHookFunctionImportForKernel(KERNEL_PID, &mmc_read_hook_ref, "SceSdstor", SceSdifForDriver_NID, 0x6f8d529b, mmc_read_hook_through);
-    
+
     #ifdef ENABLE_DEBUG_LOG
     if(mmc_read_hook_id < 0)
       FILE_GLOBAL_WRITE_LEN("Failed to init mmc_read_hook\n");
@@ -165,7 +166,7 @@ int deinitialize_hooks_physical_mmc()
   if(mmc_read_hook_id >= 0)
   {
     int res = taiHookReleaseForKernel(mmc_read_hook_id, mmc_read_hook_ref);
-    
+
     #ifdef ENABLE_DEBUG_LOG
     if(res < 0)
       FILE_GLOBAL_WRITE_LEN("Failed to deinit mmc_read_hook\n");
@@ -188,12 +189,12 @@ int deinitialize_hooks_physical_mmc()
     #endif
 
     send_command_hook_id = -1;
-  } 
+  }
 
   if(sys_wide_time_hook_id >= 0)
   {
     int res = taiHookReleaseForKernel(sys_wide_time_hook_id, sys_wide_time_hook_ref);
-   
+
     #ifdef ENABLE_DEBUG_LOG
     if(res < 0)
       FILE_GLOBAL_WRITE_LEN("Failed to deinit sys_wide_time_hook\n");

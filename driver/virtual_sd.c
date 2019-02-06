@@ -10,6 +10,7 @@
 
 #include <psp2kern/kernel/threadmgr.h>
 
+#include <stdio.h>
 #include <string.h>
 
  #include "hook_ids.h"
@@ -44,7 +45,7 @@ int sd_read_hook_threaded(void* ctx_part, int sector, char* buffer, int nSectors
     g_nSectors = nSectors;
 
     //send request
-    sceKernelSignalCondForDriver(req_cond);
+    ksceKernelSignalCond(req_cond);
 
     //lock mutex
     int res = ksceKernelLockMutex(resp_lock, 1, 0);
@@ -57,11 +58,11 @@ int sd_read_hook_threaded(void* ctx_part, int sector, char* buffer, int nSectors
     #endif
 
     //wait for response
-    res = sceKernelWaitCondForDriver(resp_cond, 0);
+    res = ksceKernelWaitCond(resp_cond, 0);
     #ifdef ENABLE_DEBUG_LOG
     if(res < 0)
     {
-      snprintf(sprintfBuffer, 256, "failed to sceKernelWaitCondForDriver resp_cond : %x\n", res);
+      snprintf(sprintfBuffer, 256, "failed to ksceKernelWaitCond resp_cond : %x\n", res);
       FILE_GLOBAL_WRITE_LEN(sprintfBuffer);
     }
     #endif
@@ -113,11 +114,11 @@ int send_command_hook_emu(sd_context_global* ctx, cmd_input* cmd_data1, cmd_inpu
   if(ksceSdifGetSdContextGlobal(SCE_SDIF_DEV_GAME_CARD) == ctx)
   {
     //can add debug code here
-    
+
     #ifdef ENABLE_COMMAND_DEBUG_LOG
     print_cmd(cmd_data1, 1, "before");
     #endif
-    
+
     int res = emulate_sd_command(ctx, cmd_data1, cmd_data2, nIter, num);
 
     //can add debug code here
@@ -155,17 +156,17 @@ int init_sd_hook_virtual(int sd_ctx_index, void** ctx_part)
     int res = TAI_CONTINUE(int, init_sd_hook_ref, sd_ctx_index, ctx_part);
     return res;
   }
-} 
+}
 
 int initialize_hooks_virtual_sd()
 {
   tai_module_info_t sdstor_info;
   sdstor_info.size = sizeof(tai_module_info_t);
-  if (taiGetModuleInfoForKernel(KERNEL_PID, "SceSdstor", &sdstor_info) >= 0) 
+  if (taiGetModuleInfoForKernel(KERNEL_PID, "SceSdstor", &sdstor_info) >= 0)
   {
     //read hook to redirect read operations to iso
     sd_read_hook_id = taiHookFunctionImportForKernel(KERNEL_PID, &sd_read_hook_ref, "SceSdstor", SceSdifForDriver_NID, 0xb9593652, sd_read_hook_threaded);
-    
+
     #ifdef ENABLE_DEBUG_LOG
     if(sd_read_hook_id < 0)
       FILE_GLOBAL_WRITE_LEN("Failed to init sd_read_hook\n");
@@ -245,7 +246,7 @@ int initialize_hooks_virtual_sd()
     #endif
 
     #endif
-    
+
     //this hooks sd init function (there is separate function for mmc init)
     //this hook is used to set cmd56 handshake data
     init_sd_hook_id = taiHookFunctionExportForKernel(KERNEL_PID, &init_sd_hook_ref, "SceSdif", SceSdifForDriver_NID, 0xc1271539, init_sd_hook_virtual);
@@ -280,7 +281,7 @@ int deinitialize_hooks_virtual_sd()
   if(sd_read_hook_id >= 0)
   {
     int res = taiHookReleaseForKernel(sd_read_hook_id, sd_read_hook_ref);
-    
+
     #ifdef ENABLE_DEBUG_LOG
     if(res < 0)
       FILE_GLOBAL_WRITE_LEN("Failed to deinit sd_read_hook\n");
@@ -294,7 +295,7 @@ int deinitialize_hooks_virtual_sd()
   if(sd_write_hook_id >= 0)
   {
     int res = taiHookReleaseForKernel(sd_write_hook_id, sd_write_hook_ref);
-    
+
     #ifdef ENABLE_DEBUG_LOG
     if(res < 0)
       FILE_GLOBAL_WRITE_LEN("Failed to deinit sd_write_hook\n");
@@ -318,7 +319,7 @@ int deinitialize_hooks_virtual_sd()
 
     gen_init_1_patch_uid = -1;
   }
-    
+
   if(gen_init_2_patch_uid >= 0)
   {
     int res = taiInjectReleaseForKernel(gen_init_2_patch_uid);
@@ -405,6 +406,6 @@ int deinitialize_hooks_virtual_sd()
 
   deinitialize_ins_rem();
   deinit_media_id_emu();
-  
+
   return 0;
 }

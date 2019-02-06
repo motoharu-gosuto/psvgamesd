@@ -17,7 +17,7 @@
 
 #include "physical_mmc.h"
 
-int module_start(SceSize argc, const void *args) 
+int module_start(SceSize argc, const void *args)
 {
   #ifdef ENABLE_DEBUG_LOG
   FILE_GLOBAL_WRITE_LEN("Startup iso driver\n");
@@ -36,17 +36,17 @@ int module_start(SceSize argc, const void *args)
 
   return SCE_KERNEL_START_SUCCESS;
 }
- 
+
 //Alias to inhibit compiler warning
 void _start() __attribute__ ((weak, alias ("module_start")));
- 
-int module_stop(SceSize argc, const void *args) 
+
+int module_stop(SceSize argc, const void *args)
 {
   deinit_global_hooks();
 
   deinitialize_dump_threading();
 
   deinitialize_read_threading();
-  
+
   return SCE_KERNEL_STOP_SUCCESS;
 }

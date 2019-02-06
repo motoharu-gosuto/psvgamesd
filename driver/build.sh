@@ -1,12 +1,6 @@
-rm extra -r
-mkdir extra
-vita-libs-gen -c extra.yml extra
-cd extra
-cmake .
-make
-cd ..
+#!/usr/bin/env bash
 
-rm build -r
+rm -rf build
 mkdir build
 cd build
 cmake ../

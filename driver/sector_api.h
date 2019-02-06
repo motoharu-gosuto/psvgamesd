@@ -37,7 +37,7 @@ typedef struct cmd_input // size is 0x240
 
    uint32_t command;
    uint32_t argument;
-   
+
    //stores normal response without command index and crc-7
    //can also store CID or CSD. crr-7 will be cleared
    //storage order is reversed
@@ -62,18 +62,18 @@ typedef struct cmd_input // size is 0x240
    uint32_t error_code; //error from interrupt handler (confirmed)
    uint32_t unk_2C;
 
-   uint8_t data0[0x30];   
-   
+   uint8_t data0[0x30];
+
    struct cmd_input* next_cmd;
    uint32_t unk_64; //some flag. must be 3 for invalidation to happen
    uint32_t array_index;
    int(*set_event_flag_callback)(void* ctx);
-   
+
    SceUID evid; // event id SceSdif0, SceSdif1, SceSdif2 (SceSdif3 ?)
    struct cmd_input* secondary_cmd; // (when multiple commands are sent)
    struct sd_context_global* gctx_ptr;
    uint32_t unk_7C;
-   
+
    char vaddr_80[0x80]; //3 - mapped to paddr_184 (invalidate 0x80)
 
    void* vaddr_100;
@@ -121,7 +121,7 @@ typedef struct sd_context_data // size is 0xC0
     struct cmd_input* cmd_ptr_next;
     uint32_t unk_8;
     uint32_t unk_C;
-    
+
     uint32_t dev_type_idx; // (1,2,3)
     void* ctx; //pointer to custom context (sd_context_part_mmc*, sd_context_part_sd*, sd_context_part_wlanbt*)
     uint32_t unk_18;
@@ -141,11 +141,11 @@ typedef struct sd_context_data // size is 0xC0
     SceUID uid_1000; // UID of SceSdif (0,1,2) memblock of size 0x1000
 
     SceUID evid; // event id SceSdif0, SceSdif1, SceSdif2 (SceSdif3 ?)
-    
+
     fast_mutex sdif_fast_mutex; // SceSdif0, SceSdif1, SceSdif2 (SceSdif3 ?)
-        
+
     //it looks like this chunk is separate structure since offset 0x2480 is used too often
-    
+
     SceUID uid_10000; // UID of SceSdif (0,1,2) memblock of size 0x10000
     void* membase_10000; // membase of SceSdif (0,1,2) memblock of size 0x10000
     uint32_t unk_8C;
@@ -183,11 +183,11 @@ typedef struct sd_context_part_base
 typedef struct sd_context_part_mmc // size is 0x398
 {
    sd_context_part_base ctxb;
-   
+
    uint8_t EXT_CSD[0x200]; // 0x30
 
    uint8_t data_230[0x160];
-   
+
    void* unk_390;
    uint32_t unk_394;
 } sd_context_part_mmc;
@@ -202,7 +202,7 @@ typedef struct sd_context_part_sd // size is 0xC0
 typedef struct sd_context_part_wlanbt // size is 0x398
 {
    struct sd_context_global* gctx_ptr;
-   
+
    uint8_t data[0x394];
 } sd_context_part_wlanbt;
 
@@ -284,27 +284,27 @@ typedef struct interrupt_info
 
 sd_context_global* ksceSdifGetSdContextGlobal(int sd_ctx_idx);
 
-sd_context_part_mmc* ksceSdifGetSdContextPartMmc(int sd_ctx_idx);
-sd_context_part_sd* ksceSdifGetSdContextPartSd(int sd_ctx_idx);
-sd_context_part_wlanbt* ksceSdifGetSdContextPartSdio(int sd_ctx_idx);
+sd_context_part_mmc* ksceSdifGetSdContextPartValidateMmc(int sd_ctx_idx);
+sd_context_part_sd* ksceSdifGetSdContextPartValidateSd(int sd_ctx_idx);
+sd_context_part_wlanbt* ksceSdifGetSdContextPartValidateSdio(int sd_ctx_idx);
 
 int ksceSdifGetCardInsertState1(int sd_ctx_idx);
 int ksceSdifGetCardInsertState2(int sd_ctx_idx);
 
-int ksceSdifInitializeSdContextPartMmc(int sd_ctx_index, sd_context_part_mmc** result);
-int ksceSdifInitializeSdContextPartSd(int sd_ctx_index, sd_context_part_sd** result);
+int ksceSdifInitializeMmcDevice(int sd_ctx_index, sd_context_part_mmc** result);
+int ksceSdifInitializeSdDevice(int sd_ctx_index, sd_context_part_sd** result);
 
 #define SD_UNKNOWN_READ_WRITE_ERROR 0x8032000E
 
 //uses CMD17 for single sector and CMD23, CMD24 for multiple sectors
-int ksceSdifReadSectorAsync(void* ctx_part, int sector, char* buffer, int nSectors);
-int ksceSdifReadSector(void* ctx_part, int sector, char* buffer, int nSectors);
+int ksceSdifReadSectorMmc(void* ctx_part, int sector, char* buffer, int nSectors);
+int ksceSdifReadSectorSd(void* ctx_part, int sector, char* buffer, int nSectors);
 
 //uses CMD18 for single sector and CMD23, CMD25 for multiple sectors
-int ksceSdifWriteSectorAsync(void* ctx_part, int sector, char* buffer, int nSectors);
-int ksceSdifWriteSector(void* ctx_part, int sector, char* buffer, int nSectors);
+int ksceSdifWriteSectorMmc(void* ctx_part, int sector, char* buffer, int nSectors);
+int ksceSdifWriteSectorSd(void* ctx_part, int sector, char* buffer, int nSectors);
 
-int ksceSdifCopyCtx(void* ctx_part, output_23a4ef01* unk0);
+int ksceSdifGetCID(void* ctx_part, output_23a4ef01* unk0);
 
 //=================================================
 
@@ -315,4 +315,4 @@ int ksceMsifDisableSlowMode();
 int ksceMsifGetSlowModeState();
 
 int ksceMsifInit1();
-int ksceMsifInit2(char* unk0_40); 
+int ksceMsifInit2(char* unk0_40);

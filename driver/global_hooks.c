@@ -15,8 +15,8 @@
 #include <psp2kern/kernel/sysmem.h>
 
 #include <taihen.h>
-#include <module.h>
 
+#include <stdio.h>
 #include <string.h>
 
 #include "hook_ids.h"
@@ -111,9 +111,9 @@ int init_global_threading()
 int deinit_global_threading()
 {
   if(SceSdif1_lock >= 0)
-  {    
+  {
     int res = ksceKernelDeleteMutex(SceSdif1_lock);
-    
+
     #ifdef ENABLE_DEBUG_LOG
     if(res < 0)
     {
@@ -401,13 +401,13 @@ int cleanup_sdif()
     gc_ctxd->unk_38 = 0x0000000E; // ????
     gc_ctxd->uid_1000 = gc_ctxd_copy.uid_1000;
     gc_ctxd->evid = gc_ctxd_copy.evid;
-    
+
     memcpy(&gc_ctxd->sdif_fast_mutex, &gc_ctxd_copy.sdif_fast_mutex, sizeof(fast_mutex));
-    
+
     //doing this instead of memcpy may cause crashes ?
     //maybe this is because fast_mutex is already broken so it is not deleted properly?
-    //sceKernelDeleteFastMutexForDriver(&gc_ctxd_copy.sdif_fast_mutex);
-    //sceKernelInitializeFastMutexForDriver(&gc_ctxd->sdif_fast_mutex, "SceSdif1");
+    //ksceKernelDeleteFastMutex(&gc_ctxd_copy.sdif_fast_mutex);
+    //ksceKernelInitializeFastMutex(&gc_ctxd->sdif_fast_mutex, "SceSdif1");
 
     gc_ctxd->uid_10000 = gc_ctxd_copy.uid_10000;
     gc_ctxd->membase_10000 = gc_ctxd_copy.membase_10000;
